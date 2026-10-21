@@ -1,0 +1,10 @@
+brief/
+bin/
+obj/
+.devenv/
+.devenv*
+.direnv/
+*.user
+.vs/
+.devspace/
+out/
