@@ -17,6 +17,7 @@ up: cluster config
     {{k}} rollout status deployment/valkey --timeout=300s
     {{k}} rollout status deployment/connect --timeout=300s
     just register-connector
+    {{k}} rollout status deployment/worker --timeout=180s
 
 # Create the kind cluster if it does not exist
 cluster:

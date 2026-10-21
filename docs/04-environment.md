@@ -28,7 +28,7 @@ Reviewer prerequisites (README): Linux/macOS (or WSL2 Ubuntu) with **Docker** an
 | `k8s/infra/connect.yaml` | Deployment + Service | `quay.io/debezium/connect:3.2.0.Final` | internal topics RF=1; topics created by the connector (`topic.creation.default.*`) |
 | `k8s/infra/valkey.yaml` | Deployment + Service | `valkey/valkey:8.1.3` | no persistence (cache is rebuildable — that is the point) |
 | `k8s/jobs/register-connector.yaml` | Job | `curlimages/curl:8.14.1` | `PUT /connectors/fleet/config` (idempotent), then polls until connector + task RUNNING |
-| `k8s/app/worker.yaml` | Deployment (1 replica) | `vehicle-cache-worker` (devspace) | env: Kafka bootstrap, Valkey endpoint — **no Postgres** — *Phase 3* |
+| `k8s/app/worker.yaml` | Deployment (1 replica) | `vehicle-cache-worker` (built by devspace from `src/VehicleCache.Worker/Dockerfile`: `sdk:10.0.401` → `runtime:10.0.12`, non-root) | env: Kafka bootstrap, Valkey endpoint — **no Postgres** |
 | `k8s/jobs/writers-*.yaml` | Job | `vehicle-cache-writers` | `scenario` / `seed` — *Phase 4* |
 | `k8s/jobs/verifier-*.yaml` | Job | `vehicle-cache-verifier` | `expect`, `dump` — *Phase 5* |
 
@@ -41,7 +41,7 @@ Gotcha (Phase 0): Kubernetes service links inject `KAFKA_PORT=tcp://…` / `CONN
 ## 3. `just` recipes (contract)
 
 ```
-just up        # kind cluster (if missing) + devspace deploy infra (+ worker from Phase 3); connector registered; idempotent
+just up        # kind cluster (if missing) + devspace build + deploy infra and worker; connector registered; idempotent
 just down      # delete namespace
 just clean     # delete kind cluster
 just logs X    # kubectl logs for worker|connect|...
@@ -74,7 +74,7 @@ just lag       # consumer group lag for vehicle-cache                           
 | Risk | Check |
 |---|---|
 | devenv/Nix on WSL2 | `devenv shell -- dotnet --version` prints 10.x |
-| devspace pushing to kind | images visible with `docker exec vehicle-cache-control-plane crictl images` (devspace loads into kind automatically for `kind-*` contexts — verify) |
+| devspace pushing to kind | ✅ verified (Phase 3): devspace builds with the local Docker daemon and loads the image into the kind node automatically (`docker exec vehicle-cache-control-plane crictl images`); no registry needed |
 | Debezium JSON shape | capture one `r`, `c`, `u`, `d` + tombstone with `kafka-console-consumer.sh` (in the Kafka pod) → save as test fixtures |
 | `timestamptz` format | confirm ISO-8601 string with microseconds and `Z` |
 | Connect internal topics RF | Connect starts with 1 broker |

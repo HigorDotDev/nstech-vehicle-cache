@@ -1,6 +1,6 @@
 # 03 — Test Behaviors
 
-Status: **Phase 2** — U and I levels automated and green; E level lands in Phase 5. Every behavior has an id `TB-xx` and an **Automation** line naming the test that proves it (tests carry `[Trait("TB","xx")]`). A behavior without automation must say why (and it is a cut, listed in the PR description).
+Status: **Phase 3** — U and I levels automated and green (43 tests); E level lands in Phase 5. Every behavior has an id `TB-xx` and an **Automation** line naming the test that proves it (tests carry `[Trait("TB","xx")]`). A behavior without automation must say why (and it is a cut, listed in the PR description).
 
 Levels: **U** = unit (pure, no I/O, captured fixtures) · **I** = integration (Testcontainers Valkey running the real Lua) · **E** = e2e (`just e2e` on kind).
 
@@ -109,7 +109,7 @@ Mutation check (Phase 2): removing the ordering guard from `apply_position.lua` 
 - **Given** a record whose value is not a valid Debezium envelope for its topic: not JSON, missing required fields, wrong table, `op` other than `r/c/u/d`, a position `u`/`d` (append-only), an unparseable timestamp
 - **When** the worker consumes it
 - **Then** the mapper throws `CdcFormatException`; the worker logs topic/partition/offset and exits non-zero; the offset is **not** stored
-- Automation: U `VehicleChangeMapperTests.Malformed_events_are_poison`, `Event_from_another_table_is_poison`, `PositionChangeMapperTests.Update_or_delete_of_append_only_positions_is_poison`, `Invalid_timestamp_is_poison` · consumer behaviour (exit without storing the offset): Phase 3
+- Automation: U `VehicleChangeMapperTests.Malformed_events_are_poison`, `Event_from_another_table_is_poison`, `PositionChangeMapperTests.Update_or_delete_of_append_only_positions_is_poison`, `Invalid_timestamp_is_poison` · I `ConsumerTests.Poison_record_stops_without_storing_offset_and_is_redelivered` (real Kafka + Valkey: committed offset stays at the poison record, a restarted consumer stops on it again) · U `CdcRecordHandlerTests.Poison_record_throws_before_touching_the_cache`
 
 ### TB-17 — The worker never talks to PostgreSQL
 - **Given** the Worker and Projection assemblies

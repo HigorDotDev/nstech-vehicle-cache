@@ -188,7 +188,7 @@ Exactly-once / Kafka transactions · DLQ · schema registry/Avro · auth/TLS · 
 | 0 | **Env spike** (biggest risk: WSL2 + Nix + devenv + kind + devspace) | 1.5h | `just up` brings Postgres+Kafka+Connect+Valkey on kind; connector registered; `kafka-console-consumer.sh` shows a real event | platform |
 | 1 | Docs v1: ADRs `Proposed`, spec, C4, TBs → **book the 30-min design review** | 1h | reviewed by `architecture-reviewer` + `interview-examiner` | main |
 | 2 | Projection core: parser + mappers (fixtures captured in phase 0), Lua scripts, **permutation/duplication convergence test** on Testcontainers Valkey | 1.5h | TB-01…TB-11, 16, 17 green; TB-10 proven to fail when a guard is removed (mutation check) | worker, test |
-| 3 | Worker host: consumers, offset store, fail-fast, image | 1h | pod runs in kind, cache fills | worker, platform |
+| 3 | Worker host: consumers, offset store, fail-fast, image | 1h | ✅ pod runs in kind, cache fills from CDC; consumer poison test on real Kafka | worker, platform |
 | 4 | Writers + `scenarios/e2e.json` (covers every TB) | 1h | scenario produces all hard cases | source |
 | 5 | `just e2e`: seed → connector (snapshot) → scenario → worker kill → offset rewind → expect → dump → flush+replay → expect → diff | 1.5h | green twice in a row from `just clean` | platform, test |
 | 6 | Final docs, README, PR description, AI log, interview rehearsal | 1h | `architecture-reviewer` finds no drift; C4 = manifests | main, examiner |

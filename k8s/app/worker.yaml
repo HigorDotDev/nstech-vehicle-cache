@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: worker }
+  template:
+    metadata:
+      labels: { app: worker }
+    spec:
+      enableServiceLinks: false
+      containers:
+        - name: worker
+          image: vehicle-cache-worker   # built and tagged by devspace
+          imagePullPolicy: IfNotPresent
+          # Kafka + Valkey only. No Postgres host, credentials or secret — ever (CLAUDE.md invariant 1, TB-17).
+          env:
+            - { name: Kafka__BootstrapServers, value: "kafka:9092" }
+            - { name: Kafka__GroupId, value: "vehicle-cache" }
+            - { name: ConnectionStrings__Valkey, value: "valkey:6379,abortConnect=false" }
+          resources:
+            requests: { memory: 128Mi, cpu: 100m }
+            limits: { memory: 256Mi }
