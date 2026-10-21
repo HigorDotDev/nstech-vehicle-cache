@@ -1,0 +1,37 @@
+{
+  "name": "e2e",
+  "description": "Streaming phase of just e2e (after seed + snapshot). Hand-written hard cases first, then a seeded burst for volume so the worker kill and offset rewind land mid-stream. Expected cache = oracle computed from Postgres (spec §2, §9).",
+  "steps": [
+    { "kind": "updateVehicle", "id": 1, "state": "MAINTENANCE", "at": "2026-10-21T13:00:00Z", "note": "TB-11/TB-01: stream update (v3) after the snapshot read (v2)" },
+    { "kind": "updateVehicle", "id": 2, "state": "IDLE", "at": "2026-10-21T07:30:00Z", "note": "out-of-order business update: older state_changed_at, accepted by the DB, mirrored by the cache (ADR-0002)" },
+
+    { "kind": "insertPosition", "vehicleId": 3, "lat": -18.931000, "lng": -48.291000, "recordedAt": "2026-10-21T13:10:00Z", "note": "TB-02" },
+    { "kind": "insertPosition", "vehicleId": 3, "lat": -18.932000, "lng": -48.292000, "recordedAt": "2026-10-21T13:05:00Z", "note": "TB-03: late fix, higher id, must lose" },
+    { "kind": "insertPosition", "vehicleId": 3, "lat": -18.933000, "lng": -48.293000, "recordedAt": "2026-10-21T13:15:00Z", "times": 2, "note": "TB-06: duplicate fix, equal recorded_at, higher id wins" },
+
+    { "kind": "insertVehicle", "id": 6, "plate": "STR0006", "state": "REGISTERED", "at": "2026-10-21T13:20:00Z", "note": "TB-07: joins the orphan position from the snapshot" },
+
+    { "kind": "insertPosition", "vehicleId": 20, "lat": -18.950000, "lng": -48.250000, "recordedAt": "2026-10-21T13:21:00Z", "note": "TB-07: position before the vehicle exists" },
+    { "kind": "insertVehicle", "id": 20, "plate": "STR0020", "state": "REGISTERED", "at": "2026-10-21T13:22:00Z" },
+
+    { "kind": "insertVehicle", "id": 21, "plate": "STR0021", "state": "ACTIVE", "at": "2026-10-21T13:23:00Z" },
+    { "kind": "insertPosition", "vehicleId": 21, "lat": -18.960000, "lng": -48.240000, "recordedAt": "2026-10-21T13:24:00Z" },
+    { "kind": "deleteVehicle", "id": 21, "note": "TB-08: tombstone" },
+    { "kind": "insertPosition", "vehicleId": 21, "lat": -18.961000, "lng": -48.241000, "recordedAt": "2026-10-21T13:20:00Z", "note": "TB-09: late fix after delete, must not resurrect" },
+
+    { "kind": "insertVehicle", "id": 22, "plate": "STR0022", "state": "REGISTERED", "at": "2026-10-21T13:25:00Z" },
+    { "kind": "deleteVehicle", "id": 22, "note": "TB-08: delete with no positions" },
+
+    { "kind": "insertPosition", "vehicleId": 23, "lat": -18.970000, "lng": -48.230000, "recordedAt": "2026-10-21T13:26:00Z", "note": "never registered: position-only hash" },
+
+    {
+      "kind": "burst", "seed": 2026, "firstVehicleId": 1000, "vehicles": 60,
+      "updatesPerVehicle": 5, "positionsPerVehicle": 15,
+      "latePct": 25, "dupPct": 10, "orphanPct": 15, "deletePct": 10,
+      "baseTime": "2026-10-21T14:00:00Z",
+      "note": "volume: ~1300 statements interleaved across 60 vehicles"
+    },
+
+    { "kind": "updateVehicle", "id": 1, "state": "ACTIVE", "at": "2026-10-21T15:00:00Z", "note": "last write: vehicle 1 ends ACTIVE v4" }
+  ]
+}

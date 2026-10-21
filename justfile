@@ -36,6 +36,28 @@ register-connector:
     {{k}} wait --for=condition=complete job/register-connector --timeout=180s || ({{k}} logs job/register-connector; exit 1)
     {{k}} logs job/register-connector | tail -1
 
+# Pre-snapshot data set (no deletes) — run before register-connector in e2e
+seed: (job "writers-seed")
+
+# Streaming hard cases + seeded burst (scenarios/e2e.json, ~150 statements/s)
+scenario: (job "writers-scenario")
+
+# Run a one-shot Job from k8s/jobs/<name>.yaml; fails fast and prints its logs on failure
+job name:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    k="{{k}}"
+    $k delete job {{name}} --ignore-not-found --wait >/dev/null
+    $k apply -f k8s/jobs/{{name}}.yaml >/dev/null
+    for _ in $(seq 1 300); do
+      succeeded=$($k get job {{name}} -o jsonpath='{.status.succeeded}')
+      failed=$($k get job {{name}} -o jsonpath='{.status.failed}')
+      if [ "${succeeded:-0}" -ge 1 ]; then $k logs job/{{name}} | tail -1; exit 0; fi
+      if [ "${failed:-0}" -ge 1 ]; then echo "job {{name}} failed:"; $k logs job/{{name}} --tail=50 || true; exit 1; fi
+      sleep 1
+    done
+    echo "job {{name}} timed out"; $k logs job/{{name}} --tail=50 || true; exit 1
+
 # Delete the namespace (keeps the cluster)
 down:
     kubectl --context {{ctx}} delete namespace {{ns}} --ignore-not-found --wait

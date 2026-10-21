@@ -7,6 +7,11 @@ images:
     image: vehicle-cache-worker
     dockerfile: src/VehicleCache.Worker/Dockerfile
     context: .
+  writers:
+    image: vehicle-cache-writers
+    dockerfile: src/VehicleCache.MockWriters/Dockerfile
+    context: .
+    tags: ["local"]   # referenced by k8s/jobs/*, which just applies directly (no devspace tag replacement)
 
 deployments:
   infra:

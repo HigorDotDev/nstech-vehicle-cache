@@ -29,7 +29,7 @@ Reviewer prerequisites (README): Linux/macOS (or WSL2 Ubuntu) with **Docker** an
 | `k8s/infra/valkey.yaml` | Deployment + Service | `valkey/valkey:8.1.3` | no persistence (cache is rebuildable — that is the point) |
 | `k8s/jobs/register-connector.yaml` | Job | `curlimages/curl:8.14.1` | `PUT /connectors/fleet/config` (idempotent), then polls until connector + task RUNNING |
 | `k8s/app/worker.yaml` | Deployment (1 replica) | `vehicle-cache-worker` (built by devspace from `src/VehicleCache.Worker/Dockerfile`: `sdk:10.0.401` → `runtime:10.0.12`, non-root) | env: Kafka bootstrap, Valkey endpoint — **no Postgres** |
-| `k8s/jobs/writers-*.yaml` | Job | `vehicle-cache-writers` | `scenario` / `seed` — *Phase 4* |
+| `k8s/jobs/writers-seed.yaml`, `writers-scenario.yaml` | Job (`backoffLimit: 0`) | `vehicle-cache-writers:local` (devspace, fixed tag because `just` applies Jobs directly) | `seed`; `scenario scenarios/e2e.json --rate 150` |
 | `k8s/jobs/verifier-*.yaml` | Job | `vehicle-cache-verifier` | `expect`, `dump` — *Phase 5* |
 
 kind node image is not pinned separately: the kind version is pinned by `devenv.lock`, and each kind release pins its default node image.
@@ -47,6 +47,8 @@ just clean     # delete kind cluster
 just logs X    # kubectl logs for worker|connect|...
 just topic T   # print a CDC topic from the beginning
 just psql      # psql on the source DB
+just seed      # writers Job: pre-snapshot data set (no deletes)
+just scenario  # writers Job: scenarios/e2e.json at 150 statements/s
 just connector # connector status
 just e2e       # full proof from a clean namespace (below); exits non-zero on any failure  — Phase 5
 just cache     # canonical dump of Valkey to stdout                                       — Phase 5

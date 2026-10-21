@@ -167,7 +167,9 @@ One console binary (System.CommandLine), Npgsql only. Never touches Kafka/Valkey
 | `vehicles --rate --count --seed --out-of-order-pct --delete-pct` | Inserts vehicles, random valid state transitions, deletes. "Out-of-order" = an update whose `state_changed_at` is *older* than the row's current one (a late report); the DB accepts it (see ADR-0002 §Decision 1). |
 | `positions --rate --vehicles --seed --late-pct --dup-pct --orphan-pct` | Inserts positions; `late` = `recorded_at` in the past relative to the vehicle's latest; `dup` = same `(vehicle_id, recorded_at, lat, lng)` inserted twice; `orphan` = vehicle id not registered yet (registered later). |
 
-Scenario step kinds: `insertVehicle`, `updateVehicle`, `deleteVehicle`, `insertPosition`, `sleep`, `barrier` (wait N ms for CDC). Seeded `Random` ⇒ reproducible runs.
+Scenario step kinds: `insertVehicle`, `updateVehicle` (explicit business time — may be older than the current one), `deleteVehicle`, `insertPosition` (`times > 1` = duplicate fix), `burst` (seeded bulk: per vehicle an optional orphan fix, insert, a random mix of updates — some late — and positions — some late or duplicated —, optional delete followed by a late fix; vehicles interleaved). A `burst` expands deterministically (`BurstGenerator`, no clock, no I/O), so a scenario file always produces the same statements. Global `--rate` paces statements (e2e: 150/s ≈ 9 s for `scenarios/e2e.json`, ~1,400 statements) so chaos steps land mid-stream. Every step carries a `note` naming the TB it exercises.
+
+`vehicles` / `positions` are the brief's free-running "configurable rate" writers (seeded, but timestamps come from the clock); the e2e uses only `seed` and `scenario`.
 
 ## 9. Verifier (`src/VehicleCache.Verifier`) — test harness, allowed to read Postgres
 
@@ -189,7 +191,7 @@ Exactly-once / Kafka transactions · DLQ · schema registry/Avro · auth/TLS · 
 | 1 | Docs v1: ADRs `Proposed`, spec, C4, TBs → **book the 30-min design review** | 1h | reviewed by `architecture-reviewer` + `interview-examiner` | main |
 | 2 | Projection core: parser + mappers (fixtures captured in phase 0), Lua scripts, **permutation/duplication convergence test** on Testcontainers Valkey | 1.5h | TB-01…TB-11, 16, 17 green; TB-10 proven to fail when a guard is removed (mutation check) | worker, test |
 | 3 | Worker host: consumers, offset store, fail-fast, image | 1h | ✅ pod runs in kind, cache fills from CDC; consumer poison test on real Kafka | worker, platform |
-| 4 | Writers + `scenarios/e2e.json` (covers every TB) | 1h | scenario produces all hard cases | source |
+| 4 | Writers + `scenarios/e2e.json` (covers every TB) | 1h | ✅ seed + e2e scenarios run as Jobs on kind; cache matched the DB on every hard case (70/70 keys); ScenarioRunner tested on real Postgres | source |
 | 5 | `just e2e`: seed → connector (snapshot) → scenario → worker kill → offset rewind → expect → dump → flush+replay → expect → diff | 1.5h | green twice in a row from `just clean` | platform, test |
 | 6 | Final docs, README, PR description, AI log, interview rehearsal | 1h | `architecture-reviewer` finds no drift; C4 = manifests | main, examiner |
 

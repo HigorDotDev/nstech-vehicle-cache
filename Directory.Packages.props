@@ -7,6 +7,9 @@
     <PackageVersion Include="Confluent.Kafka" Version="2.16.0" />
     <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.12" />
     <PackageVersion Include="StackExchange.Redis" Version="3.4.5" />
+    <!-- Mock writers / verifier only — never referenced by Worker or Projection -->
+    <PackageVersion Include="Npgsql" Version="10.0.3" />
+    <PackageVersion Include="System.CommandLine" Version="2.0.13" />
     <!-- Tests -->
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
     <PackageVersion Include="xunit" Version="2.9.3" />
@@ -14,5 +17,6 @@
     <PackageVersion Include="Shouldly" Version="4.3.0" />
     <PackageVersion Include="Testcontainers" Version="4.16.0" />
     <PackageVersion Include="Testcontainers.Kafka" Version="4.16.0" />
+    <PackageVersion Include="Testcontainers.PostgreSql" Version="4.16.0" />
   </ItemGroup>
 </Project>

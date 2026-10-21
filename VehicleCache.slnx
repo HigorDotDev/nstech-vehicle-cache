@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/VehicleCache.MockWriters/VehicleCache.MockWriters.csproj" />
     <Project Path="src/VehicleCache.Projection/VehicleCache.Projection.csproj" />
     <Project Path="src/VehicleCache.Worker/VehicleCache.Worker.csproj" />
   </Folder>

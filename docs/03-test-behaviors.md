@@ -1,6 +1,6 @@
 # 03 — Test Behaviors
 
-Status: **Phase 3** — U and I levels automated and green (43 tests); E level lands in Phase 5. Every behavior has an id `TB-xx` and an **Automation** line naming the test that proves it (tests carry `[Trait("TB","xx")]`). A behavior without automation must say why (and it is a cut, listed in the PR description).
+Status: **Phase 4** — U and I levels automated and green (47 tests); E level lands in Phase 5. Every behavior has an id `TB-xx` and an **Automation** line naming the test that proves it (tests carry `[Trait("TB","xx")]`). A behavior without automation must say why (and it is a cut, listed in the PR description).
 
 Levels: **U** = unit (pure, no I/O, captured fixtures) · **I** = integration (Testcontainers Valkey running the real Lua) · **E** = e2e (`just e2e` on kind).
 
