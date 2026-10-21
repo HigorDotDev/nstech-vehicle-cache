@@ -21,7 +21,7 @@ Work **upstream → downstream**; stop at the first broken hop. Namespace: `vehi
    | deleted vehicle has fields | script order (deleted not checked first) or `DEL` without tombstone |
    | vehicle missing state but DB has it | connector not capturing `vehicles`, or worker stuck on that topic |
    | replay dump ≠ first dump | impure value (clock/offset/host) or float formatting not round-trip |
-   | extra keys | oracle missing `writer_deletions` or orphan positions not in oracle |
+   | extra keys | oracle missing `retired_vehicle_ids` or orphan positions not in oracle |
    | timeout, lag 0 | oracle wrong, not the worker — re-check the SQL |
 
 Rules: never "fix" e2e by adding `sleep` or raising timeouts before you know which hop is slow; if a fix changes behavior, update the TB/spec in the same commit.

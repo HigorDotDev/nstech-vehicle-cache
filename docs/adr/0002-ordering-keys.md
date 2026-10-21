@@ -13,7 +13,7 @@
 Candidates: Debezium `ts_ms`, `source.lsn`, Kafka offset, business timestamps, an explicit row version.
 
 ## Decision
-1. **Vehicles — `vehicles.version`**, a `bigint` incremented by a `BEFORE UPDATE` trigger (writers cannot set it). The cache mirrors the DB row: if the write path accepts a late business update (older `state_changed_at`), the DB *and* the cache show it. Rejecting stale business updates is a write-path rule (`UPDATE … WHERE state_changed_at <= @ts`), not a cache rule — otherwise the cache becomes a second source of truth that disagrees with the table.
+1. **Vehicles — `vehicles.version`**, a `bigint` owned by a `BEFORE INSERT OR UPDATE` trigger: `1` on insert, `OLD.version + 1` on update, id changes rejected (writers cannot set, regress or fork it — one payload per `(id, version)`, the precondition of spec §6). The cache mirrors the DB row: if the write path accepts a late business update (older `state_changed_at`), the DB *and* the cache show it. Rejecting stale business updates is a write-path rule (`UPDATE … WHERE state_changed_at <= @ts`), not a cache rule — otherwise the cache becomes a second source of truth that disagrees with the table.
 2. **Positions — `(recorded_at, id)` lexicographic.** `recorded_at` is event time; `id` (identity) is a deterministic tie-break for equal timestamps / duplicate inserts.
 3. `ts_ms`, `source.lsn`, `txId`, Kafka offset/timestamp are **logged, never compared**.
 
@@ -30,4 +30,4 @@ Candidates: Debezium `ts_ms`, `source.lsn`, Kafka offset, business timestamps, a
 + Pure integer/µs comparisons, trivially testable without Kafka or Postgres.
 + Snapshot events (`op=r`) need no special casing: they carry the row's `version`.
 − Requires a schema change (`version` + trigger) in the source DB — acceptable here; in real systems it often already exists (optimistic concurrency column).
-− `recorded_at` as µs epoch stays below 2^53, so Lua's double comparison is exact.
+· Note: Lua compares numbers as doubles. `recorded_at` as µs epoch (~1.8e15), `version` and ids are assumed < 2^53, so comparisons are exact.

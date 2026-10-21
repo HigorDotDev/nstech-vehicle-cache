@@ -15,6 +15,7 @@
   "snapshot.mode": "initial",
   "message.key.columns": "public.positions:vehicle_id",
   "tombstones.on.delete": "true",
+  "skipped.operations": "none",
   "heartbeat.interval.ms": "10000",
   "topic.creation.default.partitions": "3",
   "topic.creation.default.replication.factor": "1",

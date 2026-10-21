@@ -6,7 +6,7 @@ Status: **Draft** — validate everything here in Phase 0 (env spike) before wri
 
 | Layer | Tool | Owns |
 |---|---|---|
-| Toolchain pinning | `devenv` (Nix) | `dotnet-sdk_10`, `kind`, `kubectl`, `devspace`, `just`, `jq`, `valkey` (cli) — same versions for everyone |
+| Toolchain pinning | `devenv` (Nix) | `dotnet-sdk_10`, `kind`, `kubectl`, `devspace`, `just`, `jq`, `valkey` (cli), `postgresql_17` (psql) — same versions for everyone |
 | Cluster | `kind` | single-node cluster `vehicle-cache` |
 | Build + deploy | `devspace` | builds the 3 .NET images, loads them into kind, applies `k8s/` manifests |
 | Orchestration | `just` | the only entry points: `up`, `e2e`, `down`, `clean`, plus helpers |
@@ -41,35 +41,40 @@ Gotcha (Phase 0): Kubernetes service links inject `KAFKA_PORT=tcp://…` / `CONN
 ## 3. `just` recipes (contract)
 
 ```
-just up        # kind cluster (if missing) + devspace deploy infra + worker; connector registered; idempotent
-just e2e       # full proof from a clean namespace (below); exits non-zero on any failure
+just up        # kind cluster (if missing) + devspace deploy infra (+ worker from Phase 3); connector registered; idempotent
 just down      # delete namespace
 just clean     # delete kind cluster
 just logs X    # kubectl logs for worker|connect|...
-just cache     # canonical dump of Valkey to stdout
-just lag       # consumer group lag for vehicle-cache
+just topic T   # print a CDC topic from the beginning
+just psql      # psql on the source DB
+just connector # connector status
+just e2e       # full proof from a clean namespace (below); exits non-zero on any failure  — Phase 5
+just cache     # canonical dump of Valkey to stdout                                       — Phase 5
+just lag       # consumer group lag for vehicle-cache                                     — Phase 5
 ```
 
 `just e2e` pipeline (each step fails the run on error):
 
 1. `reset` — delete + recreate namespace (fresh Postgres, Kafka, Valkey, slot)
 2. `deploy-infra` — Postgres, Kafka, Connect, Valkey; wait ready
-3. `seed` — writers Job writes the **pre-snapshot** data set (TB-11)
+3. `seed` — writers Job writes the **pre-snapshot** data set, **no deletes** (TB-11; spec §8)
 4. `register-connector` — Job; initial snapshot emits `op=r`
 5. `deploy-worker` — starts consuming (snapshot first)
-6. `scenario` — writers Job runs `scenarios/e2e.json` (late, dup, orphan, out-of-order updates, deletes, late-after-delete)
-7. `chaos:kill-worker` — `kubectl delete pod -l app=worker --wait=false` during step 6 (TB-12)
-8. `chaos:rewind` — scale 0 → `kafka-consumer-groups --reset-offsets --shift-by -500 --all-topics --execute` → scale 1 (TB-13)
-9. `verify` — verifier `expect` (TB-15) → `dump > out/d1.json`
-10. `replay` — scale 0 → `valkey-cli FLUSHALL` → `--reset-offsets --to-earliest` → scale 1 → verifier `expect` → `dump > out/d2.json` → `diff` (TB-14)
+6. `scenario` + `chaos:kill-worker` — the scenario Job is started in the background; while it runs, `kubectl delete pod -l app=worker --grace-period=0 --force` (no SIGTERM, no graceful `Close()`/commit — exercises the crash path, TB-12); wait for the Job to complete
+7. `checkpoint` — verifier `expect` → `dump > out/d0.json`
+8. `chaos:rewind` — `stop-worker` (below) → `kafka-consumer-groups.sh --group vehicle-cache --reset-offsets --shift-by -500 --all-topics --execute` (≤ 500 records **per partition**) → scale 1 (TB-13)
+9. `verify` — verifier `expect` (TB-15) → `dump > out/d1.json` → `diff d0 d1` (TB-13: redelivery changed nothing)
+10. `replay` — `stop-worker` → `valkey-cli FLUSHALL` → `--reset-offsets --to-earliest --all-topics` → scale 1 → verifier `expect` → `dump > out/d2.json` → `diff d1 d2` (TB-14)
 11. Print summary: events applied / rejected per reason (from worker logs), TB ids covered, durations.
+
+`stop-worker` = scale to 0 → `kubectl wait --for=delete pod -l app=worker` → poll `kafka-consumer-groups.sh --describe --group vehicle-cache --state` until `Empty` (offset resets are refused while members are still registered).
 
 ## 4. Risks to retire in Phase 0
 
 | Risk | Check |
 |---|---|
 | devenv/Nix on WSL2 | `devenv shell -- dotnet --version` prints 10.x |
-| devspace pushing to kind | images visible with `docker exec kind-control-plane crictl images` (devspace loads into kind automatically for `kind-*` contexts — verify) |
+| devspace pushing to kind | images visible with `docker exec vehicle-cache-control-plane crictl images` (devspace loads into kind automatically for `kind-*` contexts — verify) |
 | Debezium JSON shape | capture one `r`, `c`, `u`, `d` + tombstone with `kafka-console-consumer.sh` (in the Kafka pod) → save as test fixtures |
 | `timestamptz` format | confirm ISO-8601 string with microseconds and `Z` |
 | Connect internal topics RF | Connect starts with 1 broker |

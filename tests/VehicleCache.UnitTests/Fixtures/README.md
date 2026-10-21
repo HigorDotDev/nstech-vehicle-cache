@@ -24,5 +24,5 @@ Snapshot fixtures come from a temporary second connector (`topic.prefix=snap`, o
 
 1. **Delete `before` is not trustworthy beyond the PK.** Under `REPLICA IDENTITY DEFAULT`, Debezium fills the non-key columns with type defaults (`""`, `1970-01-01T00:00:00Z`, column default `1` for `version`). The parser reads only `before.id` on `op=d`.
 2. **All snapshot rows share one `source.lsn`** (`26393600` here) — confirms ADR-0002's rejection of LSN as a per-row version.
-3. Timestamps (`timestamptz`) arrive as ISO-8601 with exactly 6 fractional digits and `Z`.
+3. Timestamps (`timestamptz`) arrive as ISO-8601 with `Z`, usually 6 fractional digits — but not always (the zero-filled delete `before` has `1970-01-01T00:00:00Z`). The worker therefore re-formats them canonically (spec §5).
 4. Debezium 3.2 adds `ts_us`/`ts_ns` to the envelope and `source`; ignored by the worker.

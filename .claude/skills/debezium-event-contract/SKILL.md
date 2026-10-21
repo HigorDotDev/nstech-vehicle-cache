@@ -55,7 +55,7 @@ Register with `PUT http://connect:8083/connectors/fleet/config` (idempotent). Ch
 
 ## Capturing fixtures
 ```bash
-kubectl -n vehicle-cache exec deploy/kafka -- /opt/kafka/bin/kafka-console-consumer.sh \
+kubectl -n vehicle-cache exec kafka-0 -- /opt/kafka/bin/kafka-console-consumer.sh \
   --bootstrap-server localhost:9092 --topic fleet.public.vehicles --from-beginning \
   --property print.key=true --property print.offset=true --timeout-ms 5000
 ```

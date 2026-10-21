@@ -1,4 +1,6 @@
 -- Source of truth: docs/02-spec.md §3. Loaded by the postgres image on first start (docker-entrypoint-initdb.d).
+-- The triggers enforce, at the source, the preconditions the cache's convergence argument relies on (spec §6):
+-- one payload per (id, version), immutable ids, ids never reused, append-only positions.
 
 CREATE TABLE vehicles (
     id               bigint      PRIMARY KEY,             -- externally assigned fleet id, never reused (ADR-0004)
@@ -8,14 +10,40 @@ CREATE TABLE vehicles (
     version          bigint      NOT NULL DEFAULT 1       -- ordering key (ADR-0002), owned by the trigger below
 );
 
-CREATE FUNCTION vehicles_bump_version() RETURNS trigger LANGUAGE plpgsql AS $$
+-- Ids of deleted vehicles. Maintained by trigger, NOT captured by Debezium, never read by the worker.
+-- Blocks id reuse and is the verifier oracle's source for "deleted" vs "never existed".
+CREATE TABLE retired_vehicle_ids (
+    vehicle_id bigint      PRIMARY KEY,
+    retired_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE FUNCTION vehicles_guard() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
-    NEW.version := OLD.version + 1;   -- writers cannot set or regress it
+    IF TG_OP = 'INSERT' THEN
+        IF EXISTS (SELECT 1 FROM retired_vehicle_ids WHERE vehicle_id = NEW.id) THEN
+            RAISE EXCEPTION 'vehicle id % was deleted and cannot be reused', NEW.id;
+        END IF;
+        NEW.version := 1;                    -- writers cannot choose the version
+    ELSE
+        IF NEW.id <> OLD.id THEN
+            RAISE EXCEPTION 'vehicle id is immutable (% -> %)', OLD.id, NEW.id;
+        END IF;
+        NEW.version := OLD.version + 1;      -- writers cannot set or regress it
+    END IF;
     RETURN NEW;
 END $$;
 
-CREATE TRIGGER trg_vehicles_version BEFORE UPDATE ON vehicles
-    FOR EACH ROW EXECUTE FUNCTION vehicles_bump_version();
+CREATE TRIGGER trg_vehicles_guard BEFORE INSERT OR UPDATE ON vehicles
+    FOR EACH ROW EXECUTE FUNCTION vehicles_guard();
+
+CREATE FUNCTION vehicles_retire() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+    INSERT INTO retired_vehicle_ids (vehicle_id) VALUES (OLD.id);
+    RETURN OLD;
+END $$;
+
+CREATE TRIGGER trg_vehicles_retire AFTER DELETE ON vehicles
+    FOR EACH ROW EXECUTE FUNCTION vehicles_retire();
 
 CREATE TABLE positions (
     id          bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -28,9 +56,23 @@ CREATE TABLE positions (
 
 CREATE INDEX ix_positions_latest ON positions (vehicle_id, recorded_at DESC, id DESC);  -- verifier oracle only
 
--- Test harness only: not in table.include.list, never read by the worker.
--- Lets the oracle tell "deleted" from "never existed" after the row is gone.
-CREATE TABLE writer_deletions (
-    vehicle_id bigint      PRIMARY KEY,
-    deleted_at timestamptz NOT NULL DEFAULT now()
-);
+-- Positions are facts: an UPDATE/DELETE would move the argmax in a way a history-less cache cannot follow.
+CREATE FUNCTION positions_append_only() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+    RAISE EXCEPTION 'positions are append-only (% rejected)', TG_OP;
+END $$;
+
+CREATE TRIGGER trg_positions_append_only BEFORE UPDATE OR DELETE ON positions
+    FOR EACH ROW EXECUTE FUNCTION positions_append_only();
+
+-- TRUNCATE is not a supported source operation for either captured table (spec §4).
+CREATE TRIGGER trg_positions_no_truncate BEFORE TRUNCATE ON positions
+    FOR EACH STATEMENT EXECUTE FUNCTION positions_append_only();
+
+CREATE FUNCTION vehicles_no_truncate() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+    RAISE EXCEPTION 'TRUNCATE on vehicles is not supported: delete rows so CDC emits tombstones';
+END $$;
+
+CREATE TRIGGER trg_vehicles_no_truncate BEFORE TRUNCATE ON vehicles
+    FOR EACH STATEMENT EXECUTE FUNCTION vehicles_no_truncate();

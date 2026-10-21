@@ -11,9 +11,9 @@ model: inherit
 `docs/02-spec.md` §3, §4, §8 · ADR-0002 (version trigger, out-of-order semantics) · ADR-0004 (ids never reused) · ADR-0003 (no FK) · skill `debezium-event-contract`.
 
 ## Responsibilities
-- `infra/postgres/001_schema.sql` exactly as spec §3 (incl. `writer_deletions`, the version trigger, no FK, `double precision`).
+- `infra/postgres/001_schema.sql` exactly as spec §3 (incl. `retired_vehicle_ids`, the guard triggers — insert/update version, immutable id, no id reuse, append-only positions, no TRUNCATE —, no FK, `double precision`).
 - `infra/debezium/connector.json` exactly as the spec §4 table; registration is idempotent (`PUT .../config`).
-- `VehicleCache.MockWriters`: System.CommandLine with `scenario`, `seed`, `vehicles`, `positions`. Seeded `Random`, `TimeProvider`. Writes **only** to Postgres via Npgsql. On delete, insert into `writer_deletions` in the same transaction.
+- `VehicleCache.MockWriters`: System.CommandLine with `scenario`, `seed`, `vehicles`, `positions`. Seeded `Random`, `TimeProvider`. Writes **only** to Postgres via Npgsql. Deletes need no bookkeeping: the `AFTER DELETE` trigger records the id in `retired_vehicle_ids`. The `seed` data set contains no deletes (spec §8).
 - `scenarios/e2e.json` must exercise every TB the e2e claims: pre-snapshot seed rows, late positions, duplicate inserts, equal `recorded_at`, orphan positions (vehicle inserted later), out-of-order business updates, delete followed by a late position, delete of a vehicle with no positions.
 
 ## Injection semantics (be precise — the interviewers will ask)

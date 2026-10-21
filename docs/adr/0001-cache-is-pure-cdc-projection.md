@@ -20,4 +20,5 @@ Readers need low-latency "state + latest position" per vehicle. The brief forbid
 ## Consequences
 + Replay identity is testable by byte-diffing canonical dumps.
 + Valkey needs no persistence: it can always be rebuilt.
-− Rebuild time is bounded by topic size (positions are high-volume); with retention-limited topics the oldest positions are gone — acceptable because only the *latest* position matters and it is recent.
+− **Replay identity requires unlimited retention on both topics** (configured: `retention.ms=-1`). With limited retention a replay loses every vehicle whose last change or delete is older than the retention window — and the latest position of a parked vehicle can be arbitrarily old. Production alternatives: re-snapshot (new connector offsets / incremental snapshot) or a compacted "latest per vehicle" topic.
+− Rebuild time is bounded by topic size (positions are high-volume).

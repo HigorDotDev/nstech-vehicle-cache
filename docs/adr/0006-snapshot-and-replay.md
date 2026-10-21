@@ -12,7 +12,8 @@ With `snapshot.mode=initial`, Debezium first emits `op=r` for existing rows (con
 - `op=r` is handled exactly like `c`/`u` (upsert through the same guard). No special code path, no "snapshot finished" barrier.
 - Because ordering keys come from the row (`version`, `recorded_at`, `id`), a snapshot read can never override newer streamed data, and a re-snapshot is a no-op on a converged cache.
 - **Replay** = worker stopped → `FLUSHALL` → group offsets reset to earliest → worker started. Proven by TB-14 in `just e2e`.
-- `heartbeat.interval.ms` set so the replication slot advances even if one table is idle (prevents WAL retention growth).
+- `heartbeat.interval.ms` set so the connector keeps confirming slot progress even when WAL is produced only by tables outside the publication (e.g. `retired_vehicle_ids`); otherwise the slot pins WAL and Postgres disk grows.
+- Precondition: the pre-snapshot data set contains **no deletes**. A row deleted before the snapshot never appears in CDC, so the cache cannot hold its tombstone (ADR-0004).
 
 ## Alternatives considered
 - *`snapshot.mode=never` + seed the cache another way* — violates "only from CDC".

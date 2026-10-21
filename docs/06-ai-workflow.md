@@ -22,9 +22,15 @@ The brief says AI use is expected and that the interview probes "where an AI sug
 | 8 | Store `updatedAt = DateTime.UtcNow` in the cache for observability | Breaks replay-identical dumps | Purity invariant; observability in logs/metrics |
 | 9 | 5-project layered solution (Domain/Infrastructure/…) | Gold-plating for a 6–8h budget; adds no testability over one pure library | Projection (pure) + 3 executables |
 | 10 | `numeric(9,6)` for lat/lng | Debezium default `decimal.handling.mode=precise` emits base64 bytes in JSON | `double precision` columns |
-
 | 11 | (2026-10-21) Delete events carry the old row in `before` under default replica identity, so `before.version` can version the delete | Captured `vehicles.delete.json`: non-PK columns are **zero-filled** (`plate:""`, `state_changed_at:1970-01-01…`, `version` = column default). Trusting them would write garbage or a fake version | Parser reads only `before.id`; delete is terminal and needs no version (ADR-0004) |
 | 12 | (2026-10-21) Pin the kind node image to an older Kubernetes to work around the cluster failing to start on WSL2 | Masks the real cause (Docker on cgroup v1; Kubernetes ≥ 1.35 refuses it) and makes the author's environment differ from the reviewers' Linux hosts | Enabled cgroup v2 in WSL (`kernelCommandLine = cgroup_no_v1=all`); kind default node image kept |
+
+| 13 | (2026-10-21, own first draft) Treat a position `u` as an upsert "logged as anomaly" and ignore position `d` | An update to the current-latest row is rejected by the `<=` guard; deleting the latest row moves the DB argmax backwards — the cache silently diverges from the table either way | Positions append-only via trigger; position `u`/`d` are poison (ADR-0003) |
+| 14 | (2026-10-21, own first draft) `version` trigger only `BEFORE UPDATE` | An INSERT could set any version; delete + re-insert or an id change forks `(id, version)` into two payloads — "first arrival wins" breaks convergence | `BEFORE INSERT OR UPDATE` trigger, immutable id, `retired_vehicle_ids` blocks reuse (spec §3/§6) |
+| 15 | (2026-10-21, own first draft) Store timestamps "as emitted" by Debezium | Ties oracle equality to Debezium's formatting (the delete fixture shows `…00Z` without fractions) | Worker re-formats to a canonical `…ffffffZ` (pure function of the payload) |
+| 16 | (2026-10-21, own first draft) Simulate a crash with `kubectl delete pod` | That is SIGTERM + 30 s grace: the consumer's `Close()` commits offsets, so the crash path is never exercised | `--grace-period=0 --force` in the e2e chaos step |
+
+Entries 13–16 were found by the `architecture-reviewer` subagent auditing the drafts before Phase 2 — an AI reviewing AI output is part of the workflow, but every fix was reasoned through and is covered by a test or an e2e step.
 
 _Add entries as they happen during implementation, with the date._
 

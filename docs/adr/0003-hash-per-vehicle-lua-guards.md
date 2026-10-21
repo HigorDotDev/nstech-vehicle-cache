@@ -14,6 +14,8 @@ Two topics update the same logical record with independent lag. A check-then-act
 - **No buffering:** a position for an unknown vehicle is written immediately; the hash itself is the join. The state group fills in later.
 - Each group is a last-writer-wins register over a strict total order; `deleted` is absorbing and checked first. Hence the merge is commutative, associative and idempotent ⇒ any permutation/duplication converges (TB-10).
 - `positions.vehicle_id` has **no foreign key**.
+- `positions` is **append-only**, enforced by a trigger (UPDATE/DELETE/TRUNCATE rejected). The cache keeps no history, so it can only follow an argmax that never moves backwards; a position `u`/`d` event is therefore poison, not something to ignore.
+- Convergence precondition (spec §6): each ordering key maps to exactly one payload. Guaranteed at the source by the triggers of ADR-0002/0004 and this one.
 
 ## Alternatives considered
 | Option | Rejected because |

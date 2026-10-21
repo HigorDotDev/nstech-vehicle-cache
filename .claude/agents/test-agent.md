@@ -15,7 +15,7 @@ model: inherit
 2. Guard tests TB-01…TB-09, TB-11 against the real Lua scripts (Testcontainers, pinned `valkey/valkey:8.x`).
 3. Parser tests over **captured** fixtures (`r`, `c`, `u`, `d`, null tombstone, snapshot `first`/`last`).
 4. Architecture test TB-17 (the Worker assembly has no Npgsql reference).
-5. Verifier: oracle = `vehicles` rows + `argmax(recorded_at, id)` positions + `writer_deletions`; canonical dump = sorted keys and fields, JSON.
+5. Verifier: oracle = `vehicles` rows + `argmax(recorded_at, id)` positions + `retired_vehicle_ids`, values in spec §5 canonical formats; canonical dump = sorted keys and fields, JSON.
 
 ## Rules
 - Test names or `[Trait("TB","xx")]` reference the behavior id.
