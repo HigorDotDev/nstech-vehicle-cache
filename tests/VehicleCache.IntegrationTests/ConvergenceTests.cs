@@ -1,6 +1,6 @@
 using System.Globalization;
-using System.Text.Json;
 using VehicleCache.Projection;
+using VehicleCache.Verifier;
 using Xunit.Abstractions;
 
 namespace VehicleCache.IntegrationTests;
@@ -24,7 +24,7 @@ public sealed class ConvergenceTests(ValkeyFixture valkey, ITestOutputHelper out
     {
         var rng = new Random(Seed);
         var history = GenerateHistory(rng);
-        var expected = JsonSerializer.Serialize(Reference(history));
+        var expected = Reference(history).Format();
         output.WriteLine($"seed={Seed} events={history.Count} vehicles={Vehicles} permutations={Permutations}");
 
         for (var run = 0; run < Permutations; run++)
@@ -87,12 +87,12 @@ public sealed class ConvergenceTests(ValkeyFixture valkey, ITestOutputHelper out
         history.Concat(history.Where(_ => rng.NextDouble() < DuplicateRate)).ToArray();
 
     /// <summary>Independent oracle: what the cache must hold, by spec §2/§5 — not by running the scripts.</summary>
-    private static SortedDictionary<string, SortedDictionary<string, string>> Reference(List<CacheWrite> history)
+    private static CacheView Reference(List<CacheWrite> history)
     {
-        var expected = new SortedDictionary<string, SortedDictionary<string, string>>(StringComparer.Ordinal);
+        var expected = new CacheView();
         foreach (var vehicle in history.GroupBy(e => e.VehicleId))
         {
-            var hash = new SortedDictionary<string, string>(StringComparer.Ordinal);
+            var hash = expected[CacheKeys.Vehicle(vehicle.Key)];
             if (vehicle.OfType<DeleteVehicle>().Any())
             {
                 hash["deleted"] = "1";
@@ -116,8 +116,6 @@ public sealed class ConvergenceTests(ValkeyFixture valkey, ITestOutputHelper out
                     hash["positionId"] = Invariant(position.PositionId);
                 }
             }
-
-            expected[CacheKeys.Vehicle(vehicle.Key)] = hash;
         }
 
         return expected;

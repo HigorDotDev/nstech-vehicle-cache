@@ -29,6 +29,7 @@
     <ProjectReference Include="..\..\src\VehicleCache.Projection\VehicleCache.Projection.csproj" />
     <ProjectReference Include="..\..\src\VehicleCache.Worker\VehicleCache.Worker.csproj" />
     <ProjectReference Include="..\..\src\VehicleCache.MockWriters\VehicleCache.MockWriters.csproj" />
+    <ProjectReference Include="..\..\src\VehicleCache.Verifier\VehicleCache.Verifier.csproj" />
   </ItemGroup>
 
 </Project>

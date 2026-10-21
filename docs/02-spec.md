@@ -176,8 +176,9 @@ Scenario step kinds: `insertVehicle`, `updateVehicle` (explicit business time �
 | Command | Behavior |
 |---|---|
 | `expect --timeout 120s` | Builds the **oracle** from Postgres (§2 formulas; deleted ids from `retired_vehicle_ids`; values in the §5 canonical formats) and polls Valkey until equal or timeout. Prints a diff on failure. |
-| `dump --out file.json` | `SCAN vehicle:*` → canonical JSON (sorted keys and fields). |
-| `diff a.json b.json` | Byte-equality of two canonical dumps; prints the differing keys. |
+| `dump` | `SCAN vehicle:*` → canonical view on stdout: one line per vehicle, `key {json of sorted fields}`, keys sorted ordinally (`CacheView`). `just dump <name>` captures it into `out/<name>.txt`. |
+
+Identity checks are plain `diff -u` of two dumps (one line per vehicle ⇒ the diff names the differing vehicles). The same `CacheView` is used by the integration tests (TB-05/07/10), so tests and e2e compare caches the same way. `expect` computes the oracle **before** reading the cache on each poll: the cache can only catch up with the oracle, never overtake it.
 
 ## 10. Non-goals (explicit cuts)
 
@@ -192,7 +193,7 @@ Exactly-once / Kafka transactions · DLQ · schema registry/Avro · auth/TLS · 
 | 2 | Projection core: parser + mappers (fixtures captured in phase 0), Lua scripts, **permutation/duplication convergence test** on Testcontainers Valkey | 1.5h | TB-01…TB-11, 16, 17 green; TB-10 proven to fail when a guard is removed (mutation check) | worker, test |
 | 3 | Worker host: consumers, offset store, fail-fast, image | 1h | ✅ pod runs in kind, cache fills from CDC; consumer poison test on real Kafka | worker, platform |
 | 4 | Writers + `scenarios/e2e.json` (covers every TB) | 1h | ✅ seed + e2e scenarios run as Jobs on kind; cache matched the DB on every hard case (70/70 keys); ScenarioRunner tested on real Postgres | source |
-| 5 | `just e2e`: seed → connector (snapshot) → scenario → worker kill → offset rewind → expect → dump → flush+replay → expect → diff | 1.5h | green twice in a row from `just clean` | platform, test |
+| 5 | `just e2e`: seed → connector (snapshot) → scenario → worker kill → offset rewind → expect → dump → flush+replay → expect → diff | 1.5h | ✅ green twice in a row after `just clean` (274 s from a deleted cluster, 141 s warm) | platform, test |
 | 6 | Final docs, README, PR description, AI log, interview rehearsal | 1h | `architecture-reviewer` finds no drift; C4 = manifests | main, examiner |
 
 **Cut line if time runs out (in order):** random-load writer modes → `message.key.columns` → Component diagram polish → metrics. **Never cut:** convergence test, replay diff, offset-rewind duplicate injection, ADRs.

@@ -1,8 +1,8 @@
-using System.Text.Json;
 using DotNet.Testcontainers.Builders;
 using DotNet.Testcontainers.Containers;
 using StackExchange.Redis;
 using VehicleCache.Projection;
+using VehicleCache.Verifier;
 using VehicleCache.Worker.Cache;
 
 namespace VehicleCache.IntegrationTests;
@@ -41,20 +41,8 @@ public sealed class ValkeyFixture : IAsyncLifetime
         return entries.ToDictionary(e => e.Name.ToString(), e => e.Value.ToString());
     }
 
-    /// <summary>Canonical dump: keys and fields sorted ordinally, serialized as JSON. Byte-equality = identical cache.</summary>
-    public async Task<string> DumpAsync()
-    {
-        var dump = new SortedDictionary<string, SortedDictionary<string, string>>(StringComparer.Ordinal);
-        var db = Redis.GetDatabase();
-        await foreach (var key in Server.KeysAsync(pattern: CacheKeys.VehiclePattern))
-        {
-            var entries = await db.HashGetAllAsync(key);
-            dump[key.ToString()] = new SortedDictionary<string, string>(
-                entries.ToDictionary(e => e.Name.ToString(), e => e.Value.ToString()), StringComparer.Ordinal);
-        }
-
-        return JsonSerializer.Serialize(dump);
-    }
+    /// <summary>The verifier's canonical dump (spec §9). Byte-equality = identical cache.</summary>
+    public async Task<string> DumpAsync() => (await CacheView.ReadAsync(Redis)).Format();
 
     private IServer Server => Redis.GetServer(Redis.GetEndPoints()[0]);
 }

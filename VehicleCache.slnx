@@ -2,6 +2,7 @@
   <Folder Name="/src/">
     <Project Path="src/VehicleCache.MockWriters/VehicleCache.MockWriters.csproj" />
     <Project Path="src/VehicleCache.Projection/VehicleCache.Projection.csproj" />
+    <Project Path="src/VehicleCache.Verifier/VehicleCache.Verifier.csproj" />
     <Project Path="src/VehicleCache.Worker/VehicleCache.Worker.csproj" />
   </Folder>
   <Folder Name="/tests/">

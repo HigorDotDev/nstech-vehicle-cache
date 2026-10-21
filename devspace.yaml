@@ -12,6 +12,11 @@ images:
     dockerfile: src/VehicleCache.MockWriters/Dockerfile
     context: .
     tags: ["local"]   # referenced by k8s/jobs/*, which just applies directly (no devspace tag replacement)
+  verifier:
+    image: vehicle-cache-verifier
+    dockerfile: src/VehicleCache.Verifier/Dockerfile
+    context: .
+    tags: ["local"]
 
 deployments:
   infra:

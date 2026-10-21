@@ -2,6 +2,7 @@ using Npgsql;
 using Testcontainers.PostgreSql;
 using VehicleCache.MockWriters;
 using VehicleCache.MockWriters.Scenarios;
+using VehicleCache.Verifier;
 
 namespace VehicleCache.IntegrationTests;
 
@@ -62,5 +63,31 @@ public sealed class ScenarioRunnerTests : IAsyncLifetime
 
         // Enough volume for the e2e chaos steps to land mid-stream.
         (stats.VehicleUpdates + stats.PositionInserts).ShouldBeGreaterThan(1000);
+    }
+
+    [Fact]
+    [Trait("TB", "15")]
+    public async Task Oracle_follows_spec_section_2_on_the_hard_cases()
+    {
+        await RunAsync("seed.json");
+        await RunAsync("e2e.json");
+
+        var oracle = await Oracle.BuildAsync(_db, CancellationToken.None);
+
+        // One key per id that ever appeared: live vehicles, retired ids, position-only ids.
+        oracle.Count.ShouldBe((int)await ScalarAsync<long>(
+            "SELECT count(*) FROM (SELECT id FROM vehicles UNION SELECT vehicle_id FROM retired_vehicle_ids UNION SELECT vehicle_id FROM positions) ids"));
+
+        var duplicateWinner = await ScalarAsync<long>(
+            "SELECT max(id) FROM positions WHERE vehicle_id = 3 AND recorded_at = '2026-10-21T13:15:00Z'");
+        oracle["vehicle:3"]["positionId"].ShouldBe(duplicateWinner.ToString(System.Globalization.CultureInfo.InvariantCulture)); // TB-03 + TB-06
+        oracle["vehicle:3"]["recordedAt"].ShouldBe("2026-10-21T13:15:00.000000Z");
+
+        oracle["vehicle:2"]["stateChangedAt"].ShouldBe("2026-10-21T07:30:00.000000Z"); // mirrors the out-of-order update
+        oracle["vehicle:6"].Keys.ShouldContain("state");                                // orphan joined (TB-07)
+        oracle["vehicle:6"].Keys.ShouldContain("positionId");
+        oracle["vehicle:21"].ShouldBe(new SortedDictionary<string, string> { ["deleted"] = "1" }); // TB-08/09
+        oracle["vehicle:22"].ShouldBe(new SortedDictionary<string, string> { ["deleted"] = "1" });
+        oracle["vehicle:23"].Keys.ShouldNotContain("state");                            // never registered
     }
 }

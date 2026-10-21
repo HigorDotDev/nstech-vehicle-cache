@@ -1,0 +1,19 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: verifier-dump
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      labels: { app: verifier }
+    spec:
+      restartPolicy: Never
+      enableServiceLinks: false
+      containers:
+        - name: verifier
+          image: vehicle-cache-verifier:local   # built by devspace (fixed tag: Jobs are applied by just, not devspace)
+          imagePullPolicy: IfNotPresent
+          args: ["dump"]   # canonical view on stdout, captured by `just` into out/*.txt
+          env:
+            - { name: ConnectionStrings__Valkey, value: "valkey:6379" }

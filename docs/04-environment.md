@@ -30,7 +30,7 @@ Reviewer prerequisites (README): Linux/macOS (or WSL2 Ubuntu) with **Docker** an
 | `k8s/jobs/register-connector.yaml` | Job | `curlimages/curl:8.14.1` | `PUT /connectors/fleet/config` (idempotent), then polls until connector + task RUNNING |
 | `k8s/app/worker.yaml` | Deployment (1 replica) | `vehicle-cache-worker` (built by devspace from `src/VehicleCache.Worker/Dockerfile`: `sdk:10.0.401` → `runtime:10.0.12`, non-root) | env: Kafka bootstrap, Valkey endpoint — **no Postgres** |
 | `k8s/jobs/writers-seed.yaml`, `writers-scenario.yaml` | Job (`backoffLimit: 0`) | `vehicle-cache-writers:local` (devspace, fixed tag because `just` applies Jobs directly) | `seed`; `scenario scenarios/e2e.json --rate 150` |
-| `k8s/jobs/verifier-*.yaml` | Job | `vehicle-cache-verifier` | `expect`, `dump` — *Phase 5* |
+| `k8s/jobs/verifier-expect.yaml`, `verifier-dump.yaml` | Job (`backoffLimit: 0`) | `vehicle-cache-verifier:local` (devspace) | `expect --timeout 180` (reads Postgres + Valkey); `dump` (Valkey only, stdout) |
 
 kind node image is not pinned separately: the kind version is pinned by `devenv.lock`, and each kind release pins its default node image.
 
@@ -50,9 +50,13 @@ just psql      # psql on the source DB
 just seed      # writers Job: pre-snapshot data set (no deletes)
 just scenario  # writers Job: scenarios/e2e.json at 150 statements/s
 just connector # connector status
-just e2e       # full proof from a clean namespace (below); exits non-zero on any failure  — Phase 5
-just cache     # canonical dump of Valkey to stdout                                       — Phase 5
-just lag       # consumer group lag for vehicle-cache                                     — Phase 5
+just e2e       # full proof from a clean namespace (below); exits non-zero on any failure
+just cache     # canonical dump of Valkey to stdout
+just expect    # verifier: poll until cache == oracle
+just dump X    # canonical dump into out/X.txt
+just rewind    # stop worker, shift offsets back ≤100/partition, start worker
+just replay    # stop worker, FLUSHALL, offsets to earliest, start worker
+just lag       # consumer group offsets and lag
 ```
 
 `just e2e` pipeline (each step fails the run on error):
@@ -64,7 +68,7 @@ just lag       # consumer group lag for vehicle-cache                           
 5. `deploy-worker` — starts consuming (snapshot first)
 6. `scenario` + `chaos:kill-worker` — the scenario Job is started in the background; while it runs, `kubectl delete pod -l app=worker --grace-period=0 --force` (no SIGTERM, no graceful `Close()`/commit — exercises the crash path, TB-12); wait for the Job to complete
 7. `checkpoint` — verifier `expect` → `dump > out/d0.json`
-8. `chaos:rewind` — `stop-worker` (below) → `kafka-consumer-groups.sh --group vehicle-cache --reset-offsets --shift-by -500 --all-topics --execute` (≤ 500 records **per partition**) → scale 1 (TB-13)
+8. `chaos:rewind` — `stop-worker` (below) → `kafka-consumer-groups.sh --group vehicle-cache --reset-offsets --shift-by -100 --all-topics --execute` (≤ 100 records **per partition** — a partial rewind, unlike the step-10 replay) → scale 1 (TB-13)
 9. `verify` — verifier `expect` (TB-15) → `dump > out/d1.json` → `diff d0 d1` (TB-13: redelivery changed nothing)
 10. `replay` — `stop-worker` → `valkey-cli FLUSHALL` → `--reset-offsets --to-earliest --all-topics` → scale 1 → verifier `expect` → `dump > out/d2.json` → `diff d1 d2` (TB-14)
 11. Print summary: events applied / rejected per reason (from worker logs), TB ids covered, durations.

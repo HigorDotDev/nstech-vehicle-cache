@@ -1,0 +1,20 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Test harness: the ONLY component besides the writers allowed to read PostgreSQL (it is the oracle, spec §9). -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Npgsql" />
+    <PackageReference Include="StackExchange.Redis" />
+    <PackageReference Include="System.CommandLine" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Shared key names and canonical formats (spec §5) — not the projection logic. -->
+    <ProjectReference Include="..\VehicleCache.Projection\VehicleCache.Projection.csproj" />
+  </ItemGroup>
+
+</Project>

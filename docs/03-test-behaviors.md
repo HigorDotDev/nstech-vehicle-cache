@@ -1,6 +1,6 @@
 # 03 — Test Behaviors
 
-Status: **Phase 4** — U and I levels automated and green (47 tests); E level lands in Phase 5. Every behavior has an id `TB-xx` and an **Automation** line naming the test that proves it (tests carry `[Trait("TB","xx")]`). A behavior without automation must say why (and it is a cut, listed in the PR description).
+Status: **Phase 5** — all three levels automated: U + I (48 tests, `dotnet test`) and E (`just e2e`, green twice in a row after `just clean`). Every behavior has an id `TB-xx` and an **Automation** line naming the test that proves it (tests carry `[Trait("TB","xx")]`). A behavior without automation must say why (and it is a cut, listed in the PR description).
 
 Levels: **U** = unit (pure, no I/O, captured fixtures) · **I** = integration (Testcontainers Valkey running the real Lua) · **E** = e2e (`just e2e` on kind).
 
@@ -88,7 +88,7 @@ Mutation check (Phase 2): removing the ordering guard from `apply_position.lua` 
 
 ### TB-13 — Forced redelivery (offset rewind)
 - **Given** the worker caught up and dump `D0` was taken
-- **When** the worker is stopped (group `Empty`), offsets are shifted back by up to 500 records **per partition** on both topics, and the worker restarts
+- **When** the worker is stopped (group `Empty`), offsets are shifted back by up to 100 records **per partition** on both topics (partial: most partitions hold more than 100 records), and the worker restarts
 - **Then** final cache = oracle and dump `D1` is byte-identical to `D0`
 - Automation: E steps 7–9 (`checkpoint`, `chaos:rewind`, `verify` + `diff D0 D1`)
 

@@ -30,6 +30,9 @@ The brief says AI use is expected and that the interview probes "where an AI sug
 | 15 | (2026-10-21, own first draft) Store timestamps "as emitted" by Debezium | Ties oracle equality to Debezium's formatting (the delete fixture shows `…00Z` without fractions) | Worker re-formats to a canonical `…ffffffZ` (pure function of the payload) |
 | 16 | (2026-10-21, own first draft) Simulate a crash with `kubectl delete pod` | That is SIGTERM + 30 s grace: the consumer's `Close()` commits offsets, so the crash path is never exercised | `--grace-period=0 --force` in the e2e chaos step |
 
+| 17 | (2026-10-21, own draft) `just e2e` starts with `just down` (delete namespace) | Worked on the dev machine, but on a fresh machine there is no kind cluster/context yet, so step 1 failed — caught only because the e2e was re-run after `just clean` | `down` is a no-op without a cluster; "green twice in a row from `just clean`" stays a release criterion (spec §11) |
+| 18 | (2026-10-21, own draft) Rewind by 500 records per partition | Every partition held < 500 records, so the "rewind" silently became a full replay without a flush — TB-13 and TB-14 tested the same thing | Shift by 100 and print offsets before/after the reset |
+
 Entries 13–16 were found by the `architecture-reviewer` subagent auditing the drafts before Phase 2 — an AI reviewing AI output is part of the workflow, but every fix was reasoned through and is covered by a test or an e2e step.
 
 _Add entries as they happen during implementation, with the date._

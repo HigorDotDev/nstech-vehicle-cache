@@ -8,6 +8,8 @@ COPY src/VehicleCache.MockWriters/ src/VehicleCache.MockWriters/
 RUN dotnet publish src/VehicleCache.MockWriters/VehicleCache.MockWriters.csproj -c Release -o /app --no-restore
 
 FROM mcr.microsoft.com/dotnet/runtime:10.0.12
+# Npgsql probes GSSAPI at startup; without this lib the runtime logs a (harmless) libgssapi_krb5 error.
+RUN apt-get update && apt-get install -y --no-install-recommends libgssapi-krb5-2 && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=build /app .
 COPY scenarios/ scenarios/
