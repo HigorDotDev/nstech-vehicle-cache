@@ -1,0 +1,31 @@
+{
+  "before": null,
+  "after": {
+    "id": 1,
+    "plate": "ABC1D23",
+    "state": "REGISTERED",
+    "state_changed_at": "2026-10-21T10:00:00.000000Z",
+    "version": 1
+  },
+  "source": {
+    "version": "3.2.0.Final",
+    "connector": "postgresql",
+    "name": "fleet",
+    "ts_ms": 1792621877513,
+    "snapshot": "false",
+    "db": "fleet",
+    "sequence": "[null,\"26388704\"]",
+    "ts_us": 1792621877513495,
+    "ts_ns": 1792621877513495000,
+    "schema": "public",
+    "table": "vehicles",
+    "txId": 748,
+    "lsn": 26388704,
+    "xmin": null
+  },
+  "transaction": null,
+  "op": "c",
+  "ts_ms": 1792621877921,
+  "ts_us": 1792621877921102,
+  "ts_ns": 1792621877921102240
+}

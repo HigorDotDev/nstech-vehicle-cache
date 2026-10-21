@@ -1,0 +1,10 @@
+version: v2beta1
+name: vehicle-cache
+
+# Images (worker, writers, verifier) are added in Phase 3.
+# Orchestration (waits, connector registration, e2e steps) lives in the justfile.
+deployments:
+  infra:
+    kubectl:
+      manifests:
+        - k8s/infra/

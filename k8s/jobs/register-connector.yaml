@@ -1,0 +1,38 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: register-connector
+spec:
+  backoffLimit: 2
+  activeDeadlineSeconds: 180
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: register
+          image: curlimages/curl:8.14.1
+          command: ["sh", "-c"]
+          args:
+            - |
+              set -eu
+              base=http://connect:8083
+              until curl -sf "$base/connectors" >/dev/null; do echo "waiting for connect"; sleep 2; done
+              # PUT .../config is idempotent: creates or updates the connector.
+              curl -sf -X PUT -H 'Content-Type: application/json' \
+                --data @/config/connector.json "$base/connectors/fleet/config" >/dev/null
+              for i in $(seq 1 60); do
+                status=$(curl -sf "$base/connectors/fleet/status" || true)
+                echo "$status"
+                case "$status" in
+                  *'"tasks":[{"id":0,"state":"RUNNING"'*) echo "connector RUNNING"; exit 0 ;;
+                  *FAILED*) echo "connector FAILED"; exit 1 ;;
+                esac
+                sleep 2
+              done
+              echo "timed out waiting for connector"; exit 1
+          volumeMounts:
+            - { name: config, mountPath: /config }
+      volumes:
+        - name: config
+          configMap:
+            name: debezium-connector   # created by `just up` from infra/debezium/connector.json
