@@ -1,0 +1,9 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Pure library: no Kafka, Valkey or database packages may be referenced here (CLAUDE.md invariants 1–3). -->
+
+  <ItemGroup>
+    <EmbeddedResource Include="Lua\*.lua" LogicalName="VehicleCache.Projection.Lua.%(Filename)%(Extension)" />
+  </ItemGroup>
+
+</Project>
