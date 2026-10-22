@@ -18,6 +18,9 @@ public abstract record CacheWrite(long VehicleId) : CacheCommand
     /// <summary>ARGV for <see cref="Script"/>, already formatted exactly as stored in Valkey.</summary>
     public abstract string[] Arguments();
 
+    /// <summary>Short, log-friendly form, e.g. <c>UpsertState vehicle:7 [2, IDLE, ABC1D23, 2026-…Z]</c> (no script body).</summary>
+    public sealed override string ToString() => $"{GetType().Name} {Key} [{string.Join(", ", Arguments())}]";
+
     protected static string Format(long value) => value.ToString(CultureInfo.InvariantCulture);
 
     // Shortest round-trip representation: identical across runs, so replay dumps are byte-identical.

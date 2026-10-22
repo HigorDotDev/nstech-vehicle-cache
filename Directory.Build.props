@@ -7,4 +7,12 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <InvariantGlobalization>true</InvariantGlobalization>
   </PropertyGroup>
+
+  <!-- The repo lives in WSL and may also be built by a Windows IDE (\\wsl.localhost\...). Keep Windows build outputs
+       apart so the two toolchains never fight over obj/project.assets.json. Linux/devenv/Docker builds are unchanged. -->
+  <PropertyGroup Condition="'$(OS)' == 'Windows_NT'">
+    <BaseIntermediateOutputPath>$(MSBuildProjectDirectory)\obj\win\</BaseIntermediateOutputPath>
+    <BaseOutputPath>$(MSBuildProjectDirectory)\bin\win\</BaseOutputPath>
+    <DefaultItemExcludes>$(DefaultItemExcludes);obj/**;bin/**</DefaultItemExcludes>
+  </PropertyGroup>
 </Project>

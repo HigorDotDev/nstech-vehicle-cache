@@ -84,6 +84,48 @@ e2e:
     echo "covered: TB-01..TB-09 (scenario), TB-11 snapshot, TB-12 kill, TB-13 rewind, TB-14 replay, TB-15 oracle"
     echo "✔ e2e PASSED in $((SECONDS - started))s"
 
+# Visual tools on localhost (Kafka UI + ports for DBeaver / Redis Insight); the in-cluster worker keeps running. Ctrl+C stops.
+ui: (_tools "keep-worker")
+
+# Debug mode: like `ui`, but the in-cluster worker is stopped so the worker you start from the IDE (F5) gets every event
+dev: (_tools "stop-worker")
+
+_tools mode:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    k="{{k}}"
+    $k apply -f k8s/dev/kafka-ui.yaml >/dev/null
+    $k rollout status deployment/kafka-ui --timeout=240s >/dev/null
+    if [ "{{mode}}" = "stop-worker" ]; then just stop-worker; fi
+    pids=()
+    cleanup() {
+      kill "${pids[@]}" 2>/dev/null || true
+      if [ "{{mode}}" = "stop-worker" ]; then echo; echo "restoring the in-cluster worker…"; just start-worker; fi
+    }
+    trap cleanup EXIT
+    # Each forward restarts itself if its pod is replaced (e.g. after `kubectl delete pod`).
+    fwd() { ( while true; do $k port-forward "$1" "$2" >/dev/null 2>&1 || true; sleep 1; done ) & pids+=($!); }
+    fwd svc/postgres   15432:5432
+    fwd svc/valkey     16379:6379
+    fwd pod/kafka-0    29092:29092
+    fwd svc/kafka-ui   18080:8080
+    fwd svc/connect    18083:8083
+    sleep 2
+    echo ""
+    echo "  Kafka UI          http://localhost:18080        topics, messages, consumer group, Debezium connector"
+    echo "  PostgreSQL        localhost:15432  db=fleet  user=postgres  password=postgres   (DBeaver / pgAdmin)"
+    echo "  Valkey            localhost:16379                (Redis Insight; keys vehicle:*)"
+    echo "  Kafka (external)  localhost:29092                (used by the worker started from the IDE)"
+    echo "  Kafka Connect     http://localhost:18083/connectors/fleet/status"
+    if [ "{{mode}}" = "stop-worker" ]; then
+      echo ""
+      echo "  In-cluster worker is STOPPED. Start VehicleCache.Worker from your IDE with the 'local-kind'"
+      echo "  profile (DOTNET_ENVIRONMENT=Development), set breakpoints, then INSERT/UPDATE/DELETE in DBeaver."
+    fi
+    echo ""
+    echo "  Ctrl+C to stop$([ "{{mode}}" = "stop-worker" ] && echo " (the in-cluster worker is restarted)")."
+    wait
+
 # Create the kind cluster and namespace if missing
 cluster:
     kind get clusters 2>/dev/null | grep -qx {{cluster}} || kind create cluster --name {{cluster}} --wait 180s

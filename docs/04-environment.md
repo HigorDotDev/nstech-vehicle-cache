@@ -74,7 +74,26 @@ just connector # connector status
 
 Helpers: `stop-worker` = scale to 0 → wait for pod deletion → poll `kafka-consumer-groups.sh --describe --state` until `Empty` (offset resets are refused while members are registered). `wait-caught-up` = poll consumer-group lag until 0 on every partition of both topics.
 
-## 4. Risks retired in Phase 0 (all verified)
+## 4. Dev mode: visual tools and IDE debugging (not part of `just e2e`)
+
+| Recipe | What it does |
+|---|---|
+| `just ui` | Deploys Kafka UI (`k8s/dev/kafka-ui.yaml`, `ghcr.io/kafbat/kafka-ui:v1.3.0`) and port-forwards everything to `localhost`; the in-cluster worker keeps running. Ctrl+C stops the forwards. |
+| `just dev` | Same, but stops the in-cluster worker so a worker started from the IDE receives every event; Ctrl+C restarts the in-cluster worker. |
+
+| Port (localhost) | Target | Tool |
+|---|---|---|
+| 15432 | PostgreSQL (`fleet`, `postgres`/`postgres`) | DBeaver / pgAdmin |
+| 16379 | Valkey | Redis Insight |
+| 29092 | Kafka `EXTERNAL` listener (advertised as `localhost:29092`; in-cluster clients keep `kafka:9092`) | worker started from the IDE |
+| 18080 | Kafka UI | browser — topics, messages, consumer group, Debezium connector |
+| 18083 | Kafka Connect REST | browser / curl |
+
+Ports are non-standard on purpose (no clash with a local Postgres/Redis). WSL2 forwards `localhost` ports to Windows, so Windows apps can use them directly. Each forward restarts itself if its pod is replaced.
+
+IDE debugging: launch profile `local-kind` (`src/VehicleCache.Worker/Properties/launchSettings.json`) sets `DOTNET_ENVIRONMENT=Development` (`appsettings.Development.json` → `localhost:29092`, `localhost:16379`, Debug logs with one short line per command and its outcome) and `DOTNET_hostBuilder__reloadConfigOnChange=false` — config file watching over `\\wsl.localhost\…` made the host hang silently. Windows builds of the WSL checkout go to `bin/win` / `obj/win` (`Directory.Build.props`) so Windows and Linux toolchains never overwrite each other's restore output. Verified: a worker started on Windows against the kind cluster consumed and projected live inserts, a late fix (`Rejected`) and a delete.
+
+## 5. Risks retired in Phase 0 (all verified)
 
 | Risk | Outcome |
 |---|---|

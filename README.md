@@ -34,6 +34,15 @@ just e2e              # the full proof below, from a clean namespace            
 
 Unit and integration tests (48, Testcontainers — needs Docker): `dotnet test VehicleCache.slnx` inside `devenv shell`. The key one, **TB-10**, applies 200 random permutations of an event history with ~20% duplicates and requires every resulting cache to equal an independently computed reference; removing an ordering guard makes it fail on the first permutation.
 
+### Explore it visually / debug it (optional)
+
+```bash
+just ui     # Kafka UI on http://localhost:18080, Postgres on :15432, Valkey on :16379 — Ctrl+C to stop
+just dev    # same, but the in-cluster worker is paused: run VehicleCache.Worker from your IDE (profile `local-kind`)
+```
+
+Insert a row in `vehicles`/`positions` with DBeaver, watch the change event in Kafka UI, step through `KafkaCdcConsumer` → `CdcRecordHandler` → mapper → Lua with breakpoints, and see `vehicle:{id}` change in Redis Insight. Details: [docs/04-environment.md §4](docs/04-environment.md).
+
 ## How it stays correct
 
 The cache is defined as a function of the source tables, and every write is a commutative, idempotent merge:
