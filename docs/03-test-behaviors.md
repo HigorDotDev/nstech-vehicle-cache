@@ -1,12 +1,12 @@
 # 03 — Test Behaviors
 
-Status: **Phase 5** — all three levels automated: U + I (48 tests, `dotnet test`) and E (`just e2e`, green twice in a row after `just clean`). Every behavior has an id `TB-xx` and an **Automation** line naming the test that proves it (tests carry `[Trait("TB","xx")]`). A behavior without automation must say why (and it is a cut, listed in the PR description).
+Status: **Final** — all three levels automated: U + I (`dotnet test`, 53 test cases) and E (`just e2e`, green twice in a row after `just clean`). Every behavior has an id `TB-xx` and an **Automation** line naming the test that proves it (tests carry `[Trait("TB","xx")]`). A behavior without automation must say why (and it is a cut, listed in the PR description).
 
 Levels: **U** = unit (pure, no I/O, captured fixtures) · **I** = integration (Testcontainers Valkey running the real Lua) · **E** = e2e (`just e2e` on kind).
 
 Notation: `cache(7)` = `HGETALL vehicle:7`. "Identical" always means equal **canonical dumps** (keys and fields sorted — spec §9), never raw `HGETALL` order: Valkey listpack hashes keep insertion order.
 
-Mutation check (Phase 2): removing the ordering guard from `apply_position.lua` makes TB-10 fail on the first permutation — the suite does catch a naive "consume → HSET" worker.
+Mutation check: each Lua guard was removed in turn (no version guard in `apply_state`, no `(recordedAt, id)` guard in `apply_position`, plain `DEL` without tombstone in `delete_vehicle`); every mutant fails TB-10 plus 3–4 guard tests, and the e2e additionally requires the replay to reject > 0 stale positions — the suite catches a naive "consume → HSET" worker.
 
 ---
 
@@ -26,7 +26,7 @@ Mutation check (Phase 2): removing the ordering guard from `apply_position.lua` 
 - **Given** `cache(1)` has the captured position `(10:06:00.123456, id 1)`
 - **When** the captured late position `(10:01, id 2)` arrives — higher id (inserted later) but older `recorded_at`
 - **Then** the script returns `0` and `cache(1)` still has `(10:06:00.123456, id 1)`
-- Automation: I `GuardTests.Older_recorded_at_is_rejected_even_with_higher_id` (real fixtures) · E (writer `late`)
+- Automation: I `GuardTests.Older_recorded_at_is_rejected_even_with_higher_id` (real fixtures) · U `PositionChangeMapperTests.Late_position_has_higher_id_but_older_recorded_at` · E (writer `late`)
 
 ### TB-04 — Stale state is ignored (redelivered older version)
 - **Given** `cache(7).stateVersion = 3`
@@ -103,18 +103,18 @@ Mutation check (Phase 2): removing the ordering guard from `apply_position.lua` 
 - **When** the verifier computes the oracle from Postgres (`vehicles` rows, `argmax(recorded_at, id)` per vehicle, `retired_vehicle_ids`; spec §5 canonical formats)
 - **Then** every `vehicle:*` hash equals its oracle entry and there are no extra keys
 - Precondition: the seed (pre-snapshot) data contains no deletes (spec §2)
-- Automation: E `verifier expect`
+- Automation: E `verifier expect` · I `ScenarioRunnerTests.Oracle_follows_spec_section_2_on_the_hard_cases` (oracle vs real Postgres + scenarios)
 
 ### TB-16 — Poison event fails fast, never silently skipped
 - **Given** a record whose value is not a valid Debezium envelope for its topic: not JSON, missing required fields, wrong table, `op` other than `r/c/u/d`, a position `u`/`d` (append-only), an unparseable timestamp
 - **When** the worker consumes it
 - **Then** the mapper throws `CdcFormatException`; the worker logs topic/partition/offset and exits non-zero; the offset is **not** stored
-- Automation: U `VehicleChangeMapperTests.Malformed_events_are_poison`, `Event_from_another_table_is_poison`, `PositionChangeMapperTests.Update_or_delete_of_append_only_positions_is_poison`, `Invalid_timestamp_is_poison` · I `ConsumerTests.Poison_record_stops_without_storing_offset_and_is_redelivered` (real Kafka + Valkey: committed offset stays at the poison record, a restarted consumer stops on it again) · U `CdcRecordHandlerTests.Poison_record_throws_before_touching_the_cache`
+- Automation: U `VehicleChangeMapperTests.Malformed_events_are_poison`, `Event_from_another_table_is_poison`, `PositionChangeMapperTests.Update_or_delete_of_append_only_positions_is_poison`, `Invalid_timestamp_is_poison`, `Date_only_or_zone_less_timestamps_are_poison` · I `ConsumerTests.Poison_record_stops_without_storing_offset_and_is_redelivered` (real Kafka + Valkey: committed offset stays at the poison record, a restarted consumer stops on it again) · U `CdcRecordHandlerTests.Poison_record_throws_before_touching_the_cache`
 
 ### TB-17 — The worker never talks to PostgreSQL
 - **Given** the Worker and Projection assemblies
 - **Then** neither references a database client (Npgsql); Projection also references no Kafka/Valkey client; the worker Deployment has no Postgres env/secret
-- Automation: U `ArchitectureTests.Worker_has_no_database_client_reference`, `ArchitectureTests.Projection_is_pure` (direct references) · review checklist for the Deployment
+- Automation: U `ArchitectureTests.Worker_has_no_database_client_reference`, `Projection_is_pure` (compiled references), `Project_files_declare_no_database_client` (declared package/project references) · review checklist for the Deployment
 
 ---
 

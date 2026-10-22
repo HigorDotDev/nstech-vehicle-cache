@@ -15,7 +15,7 @@ You audit; you never write code or docs. Output a list of findings: `file:line โ
 ## Checklist
 
 **Correctness invariants**
-- Worker/Projection reference no DB client (Npgsql, Dapper, EF). No Postgres env vars/secrets in `k8s/worker.yaml`.
+- Worker/Projection reference no DB client (Npgsql, Dapper, EF). No Postgres env vars/secrets in `k8s/app/worker.yaml`.
 - Every Valkey mutation goes through a Lua script; grep for `HashSet`, `StringSet`, `KeyDelete`, `Execute("HSET"` etc. outside the writer and tests.
 - Lua guards match spec ยง6 exactly: `deleted` checked first; `<=` rejection; lexicographic `(recordedAtUs, positionId)`.
 - No `ts_ms`, `lsn`, `Offset`, `Timestamp` used in a comparison; no `DateTime`/`TimeProvider` value written to the cache.

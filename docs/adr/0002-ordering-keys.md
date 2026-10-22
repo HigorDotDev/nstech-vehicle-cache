@@ -1,6 +1,6 @@
 # ADR-0002 — Ordering keys: `version` for vehicles, `(recorded_at, id)` for positions
 
-- **Status:** Proposed
+- **Status:** Accepted (author decision, 2026-10-21; the optional design-review call was not held)
 - **Date:** 2026-10-21
 - **Deciders:** Higor Buiatti
 - **Related:** spec §3, §6; TB-03, TB-04, TB-06, TB-11

@@ -48,8 +48,10 @@ CREATE TRIGGER trg_vehicles_retire AFTER DELETE ON vehicles
 CREATE TABLE positions (
     id          bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     vehicle_id  bigint           NOT NULL,                -- deliberately no foreign key (ADR-0003)
-    lat         double precision NOT NULL,                -- double, not numeric: avoids Debezium base64 decimals
-    lng         double precision NOT NULL,
+    -- double, not numeric: avoids Debezium base64 decimals. The range checks also reject NaN/±Infinity, which
+    -- would reach the worker as non-JSON-number tokens and halt the positions consumer forever (poison).
+    lat         double precision NOT NULL CHECK (lat BETWEEN -90 AND 90),
+    lng         double precision NOT NULL CHECK (lng BETWEEN -180 AND 180),
     recorded_at timestamptz      NOT NULL,                -- business (event) time — ordering key
     inserted_at timestamptz      NOT NULL DEFAULT now()   -- ingestion time — never used for ordering
 );

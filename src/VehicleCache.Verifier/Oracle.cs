@@ -20,7 +20,11 @@ public static class Oracle
         var view = new CacheView();
         var retired = new HashSet<long>();
 
-        await using (var cmd = db.CreateCommand("SELECT vehicle_id FROM retired_vehicle_ids"))
+        // One snapshot for all three queries, so the oracle is a consistent point in time even while writers run.
+        await using var connection = await db.OpenConnectionAsync(ct);
+        await using var transaction = await connection.BeginTransactionAsync(System.Data.IsolationLevel.RepeatableRead, ct);
+
+        await using (var cmd = new NpgsqlCommand("SELECT vehicle_id FROM retired_vehicle_ids", connection, transaction))
         await using (var reader = await cmd.ExecuteReaderAsync(ct))
         {
             while (await reader.ReadAsync(ct))
@@ -31,7 +35,7 @@ public static class Oracle
             }
         }
 
-        await using (var cmd = db.CreateCommand("SELECT id, plate, state, state_changed_at, version FROM vehicles"))
+        await using (var cmd = new NpgsqlCommand("SELECT id, plate, state, state_changed_at, version FROM vehicles", connection, transaction))
         await using (var reader = await cmd.ExecuteReaderAsync(ct))
         {
             while (await reader.ReadAsync(ct))
@@ -49,7 +53,7 @@ public static class Oracle
             FROM positions
             ORDER BY vehicle_id, recorded_at DESC, id DESC
             """;
-        await using (var cmd = db.CreateCommand(latestPositions))
+        await using (var cmd = new NpgsqlCommand(latestPositions, connection, transaction))
         await using (var reader = await cmd.ExecuteReaderAsync(ct))
         {
             while (await reader.ReadAsync(ct))

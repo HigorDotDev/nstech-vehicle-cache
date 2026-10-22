@@ -1,6 +1,6 @@
 # ADR-0004 — Deletes: terminal tombstone hash; Kafka tombstones ignored; no compaction
 
-- **Status:** Proposed
+- **Status:** Accepted (author decision, 2026-10-21; the optional design-review call was not held)
 - **Date:** 2026-10-21
 - **Deciders:** Higor Buiatti
 - **Related:** spec §2, §3, §4, §5; TB-08, TB-09, TB-15
@@ -31,3 +31,4 @@ Vehicles can be deleted. Debezium emits `op=d` followed by a Kafka tombstone (nu
 − **Deletes before the initial snapshot are invisible to CDC**: the cache shows no key (or a position-only hash, since positions survive without FK) instead of `{deleted:1}`. Readers treat both as "not found"; the e2e seed contains no deletes so the oracle stays exact (spec §2).
 − **If ids had to be reusable**, the tombstone would block the new vehicle. Mitigation: an incarnation id (e.g. UUID per registration) — stated as a known limit.
 − **If topics become compacted**, a deleted vehicle's events eventually disappear; a replay would then produce *no key* instead of `{deleted:1}`. Readers treat both as "not found", but the byte-identical replay check would have to ignore tombstone hashes. Documented, not implemented.
+− **Compacting `positions` would be wrong, not just different:** it is keyed by `vehicle_id` (ADR-0007), so compaction keeps the *last inserted* fix per vehicle — which may be a late one — not the argmax by `recorded_at`. A replay would restore an older position. Never compact the raw positions topic; a derived, compacted "latest position per vehicle" topic would be the safe evolution.

@@ -33,6 +33,13 @@ The brief says AI use is expected and that the interview probes "where an AI sug
 | 17 | (2026-10-21, own draft) `just e2e` starts with `just down` (delete namespace) | Worked on the dev machine, but on a fresh machine there is no kind cluster/context yet, so step 1 failed — caught only because the e2e was re-run after `just clean` | `down` is a no-op without a cluster; "green twice in a row from `just clean`" stays a release criterion (spec §11) |
 | 18 | (2026-10-21, own draft) Rewind by 500 records per partition | Every partition held < 500 records, so the "rewind" silently became a full replay without a flush — TB-13 and TB-14 tested the same thing | Shift by 100 and print offsets before/after the reset |
 
+| 19 | (2026-10-21, own draft) "Valkey needs no persistence: it can always be rebuilt" | True only by hand: after a Valkey restart the worker resumes from committed offsets and the cache stays partial | ADR-0001 consequence + `just replay` runbook; automatic generation marker documented as evolution |
+| 20 | (2026-10-21, own draft) "A poison record halts its partition" | `StopApplication()` stops the whole process — both consumers, every partition | ADR-0005 corrected; DLQ / per-vehicle quarantine as evolution |
+| 21 | (2026-10-21, own draft) Lenient timestamp parsing (`TryParse` + `AssumeUniversal`) | A date-only or zone-less value would be silently accepted and guessed as UTC instead of being poison | `TryParseExact` with a required zone; unit tests for the rejected shapes |
+| 22 | (2026-10-21, own draft) Only `apply_position` was mutation-checked | `apply_state` / `delete_vehicle` could have had untested guards; the e2e only printed rejected counts | All three guards mutation-checked; e2e now requires > 0 rejected positions and ≥ 1 snapshot read |
+
+Entries 19–22 came from the final `architecture-reviewer` pass and an `interview-examiner` rehearsal before opening the PR.
+
 Entries 13–16 were found by the `architecture-reviewer` subagent auditing the drafts before Phase 2 — an AI reviewing AI output is part of the workflow, but every fix was reasoned through and is covered by a test or an e2e step.
 
 _Add entries as they happen during implementation, with the date._

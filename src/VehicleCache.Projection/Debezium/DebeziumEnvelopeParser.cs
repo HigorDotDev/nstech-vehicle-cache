@@ -9,7 +9,7 @@ public sealed class CdcFormatException(string message, Exception? inner = null) 
 
 // Only the fields the projection relies on (spec §4). ts_ms, lsn, txId, sequence are deliberately not bound:
 // they are never used for ordering (ADR-0002).
-internal sealed record DebeziumSource(string Table, string? Snapshot);
+internal sealed record DebeziumSource(string Table); // source.snapshot is deliberately not bound: never used for decisions (spec §4)
 
 internal sealed record VehicleRow(long Id, string Plate, string State, string StateChangedAt, long Version);
 

@@ -1,6 +1,6 @@
 # 02 — Specification & Implementation Plan
 
-Status: **Draft** · Owner: Higor Buiatti · Related: ADR-0001…0009, `01-c4.md`, `03-test-behaviors.md`
+Status: **Final** (as submitted) · Owner: Higor Buiatti · Related: ADR-0001…0009, `01-c4.md`, `03-test-behaviors.md`
 
 ## 1. Problem statement
 
@@ -26,7 +26,7 @@ Full DDL: `infra/postgres/001_schema.sql` (the file is the source of truth; this
 | Table | Columns | Rules (enforced by triggers) |
 |---|---|---|
 | `vehicles` | `id bigint PK` (external fleet id), `plate`, `state` (CHECK: `REGISTERED/ACTIVE/IDLE/MAINTENANCE/DECOMMISSIONED`), `state_changed_at timestamptz` (business time, informational), `version bigint` | `BEFORE INSERT`: `version := 1`, reject ids found in `retired_vehicle_ids`. `BEFORE UPDATE`: `version := OLD.version + 1`, reject any change of `id`. `AFTER DELETE`: insert id into `retired_vehicle_ids`. `BEFORE TRUNCATE`: reject. |
-| `positions` | `id bigint identity PK`, `vehicle_id bigint` (**no FK**, ADR-0003), `lat`/`lng double precision` (not `numeric`: avoids base64 decimals), `recorded_at timestamptz` (event time, ordering key), `inserted_at` (ingestion time, never used) | Append-only: `BEFORE UPDATE OR DELETE` and `BEFORE TRUNCATE` reject. Index `(vehicle_id, recorded_at DESC, id DESC)` serves only the oracle. |
+| `positions` | `id bigint identity PK`, `vehicle_id bigint` (**no FK**, ADR-0003), `lat`/`lng double precision` with range CHECKs (`-90..90`, `-180..180`; also rejects NaN/±Infinity, which would otherwise become poison) — not `numeric`, which Debezium would emit as base64 decimals, `recorded_at timestamptz` (event time, ordering key), `inserted_at` (ingestion time, never used) | Append-only: `BEFORE UPDATE OR DELETE` and `BEFORE TRUNCATE` reject. Index `(vehicle_id, recorded_at DESC, id DESC)` serves only the oracle. |
 | `retired_vehicle_ids` | `vehicle_id PK`, `retired_at` | Trigger-maintained. **Not captured** by Debezium, never read by the worker. Blocks id reuse; tells the oracle "deleted" from "never existed". |
 
 These triggers are what make the convergence precondition (§6) true at the source: exactly one payload per `(id, version)` and per `(vehicle_id, recorded_at, id)`.
@@ -101,7 +101,7 @@ Reader contract (documented in README):
 | missing | unknown vehicle |
 | `deleted=1` | vehicle removed — treat as not found |
 | `state` present | registered; position may be absent (no position yet) |
-| only position fields | position received before the vehicle row — show location, state `UNKNOWN` |
+| only position fields | location known, state `UNKNOWN` — ambiguous by design: the vehicle row has not arrived *yet*, was never registered, or was deleted before the initial snapshot (ADR-0004). The cache carries no processing metadata (invariant 2), so readers that must tell these apart need consumer lag from outside the keyspace. |
 
 **Canonical formats** (so the cache does not depend on Debezium's formatting, and the verifier can build identical strings from Npgsql values): timestamps are re-formatted as `yyyy-MM-ddTHH:mm:ss.ffffffZ` (UTC, always 6 fractional digits — `CdcTimestamps`); integers and doubles use invariant culture, shortest round-trip (`-19`, `-18.9186`). Re-formatting is a pure function of the payload, so invariant 2 holds.
 
@@ -135,9 +135,10 @@ Why these converge: each guard is a strict total order on a field group, and `de
 
 ```
 KafkaCdcConsumer (BackgroundService, one per topic, group "vehicle-cache")
-   └─ consume → {Vehicle|Position}ChangeMapper.Map(value) → CacheCommand
-                                                          └─ IVehicleCacheWriter (Valkey, Lua script)
-                                                               └─ on return: consumer.StoreOffset(result)
+   └─ consume → CdcRecordHandler.HandleAsync(value)
+                  ├─ {Vehicle|Position}ChangeMapper.Map(value) → CacheCommand   (throws CdcFormatException = poison)
+                  └─ IVehicleCacheWriter.ApplyAsync(command)  (Lua script; bounded retry on Valkey errors)
+              └─ on return: consumer.StoreOffset(result)        (poison: stop host, offset NOT stored)
 ```
 
 | Component | Project | Responsibility | Pure? |
@@ -149,8 +150,9 @@ KafkaCdcConsumer (BackgroundService, one per topic, group "vehicle-cache")
 | `CacheCommand` (records) | Projection | `UpsertState`, `ApplyPosition`, `DeleteVehicle` (each a `CacheWrite` that knows its key, script and ARGV), `Skip(reason)` | yes |
 | `LuaScripts` | Projection | embedded `.lua` resources | yes |
 | `ValkeyVehicleCacheWriter` | Worker | runs the command's script (`ScriptEvaluateAsync`; SE.Redis caches SHA and uses EVALSHA), returns `Applied`/`Rejected`/`Skipped` | I/O |
-| `KafkaCdcConsumer` | Worker | poll loop, `enable.auto.offset.store=false`, `StoreOffset` after write, auto-commit of stored offsets | I/O |
-| `ProjectionMetrics` | Worker | counters applied / rejected-stale / skipped (logs + `/metrics` optional) — **never in Valkey** | I/O |
+| `CdcRecordHandler` | Worker | one record → map → write; retries idempotent writes on Valkey errors (200 ms, 1 s, 3 s, 5 s) then rethrows; never catches `CdcFormatException`; records metrics | I/O |
+| `KafkaCdcConsumer` | Worker | poll loop, `enable.auto.offset.store=false`, `StoreOffset` after the handler returned, auto-commit of stored offsets; poison or exhausted retries ⇒ exit code 1 + stop host | I/O |
+| `ProjectionMetrics` | Worker | per-topic counters applied / rejected / skipped, logged every 10 s as `Projection <topic> applied=… rejected=… skipped=…` — **never in Valkey** | — |
 
 Consumer settings: `enable.auto.commit=true` + `enable.auto.offset.store=false` (commit only what was stored), `auto.offset.reset=earliest`, `isolation.level` default, `partition.assignment.strategy=cooperative-sticky`. Failure policy: parse error or Valkey error after retries ⇒ log with topic/partition/offset and **stop the host** (non-zero exit, Kubernetes restarts the pod; the event is redelivered). No DLQ in scope (ADR-0005).
 
@@ -175,7 +177,7 @@ Scenario step kinds: `insertVehicle`, `updateVehicle` (explicit business time �
 
 | Command | Behavior |
 |---|---|
-| `expect --timeout 120s` | Builds the **oracle** from Postgres (§2 formulas; deleted ids from `retired_vehicle_ids`; values in the §5 canonical formats) and polls Valkey until equal or timeout. Prints a diff on failure. |
+| `expect --timeout 180` (seconds) | Builds the **oracle** from Postgres in one `REPEATABLE READ` snapshot (§2 formulas; deleted ids from `retired_vehicle_ids`; values in the §5 canonical formats) and polls Valkey until equal or timeout. Prints a diff on failure. |
 | `dump` | `SCAN vehicle:*` → canonical view on stdout: one line per vehicle, `key {json of sorted fields}`, keys sorted ordinally (`CacheView`). `just dump <name>` captures it into `out/<name>.txt`. |
 
 Identity checks are plain `diff -u` of two dumps (one line per vehicle ⇒ the diff names the differing vehicles). The same `CacheView` is used by the integration tests (TB-05/07/10), so tests and e2e compare caches the same way. `expect` computes the oracle **before** reading the cache on each poll: the cache can only catch up with the oracle, never overtake it.
@@ -188,13 +190,13 @@ Exactly-once / Kafka transactions · DLQ · schema registry/Avro · auth/TLS · 
 
 | # | Phase | Box | Done when | Agent |
 |---|---|---|---|---|
-| 0 | **Env spike** (biggest risk: WSL2 + Nix + devenv + kind + devspace) | 1.5h | `just up` brings Postgres+Kafka+Connect+Valkey on kind; connector registered; `kafka-console-consumer.sh` shows a real event | platform |
-| 1 | Docs v1: ADRs `Proposed`, spec, C4, TBs → **book the 30-min design review** | 1h | reviewed by `architecture-reviewer` + `interview-examiner` | main |
-| 2 | Projection core: parser + mappers (fixtures captured in phase 0), Lua scripts, **permutation/duplication convergence test** on Testcontainers Valkey | 1.5h | TB-01…TB-11, 16, 17 green; TB-10 proven to fail when a guard is removed (mutation check) | worker, test |
+| 0 | **Env spike** (biggest risk: WSL2 + Nix + devenv + kind + devspace) | 1.5h | ✅ `just up` brings Postgres+Kafka+Connect+Valkey on kind; connector registered; `kafka-console-consumer.sh` shows a real event | platform |
+| 1 | Docs v1: ADRs `Proposed`, spec, C4, TBs → **book the 30-min design review** | 1h | ✅ reviewed by `architecture-reviewer` (29 findings fixed); design-review call not held | main |
+| 2 | Projection core: parser + mappers (fixtures captured in phase 0), Lua scripts, **permutation/duplication convergence test** on Testcontainers Valkey | 1.5h | ✅ TB-01…TB-11, 16, 17 green; every Lua guard mutation-checked (each removal fails TB-10 + guard tests) | worker, test |
 | 3 | Worker host: consumers, offset store, fail-fast, image | 1h | ✅ pod runs in kind, cache fills from CDC; consumer poison test on real Kafka | worker, platform |
 | 4 | Writers + `scenarios/e2e.json` (covers every TB) | 1h | ✅ seed + e2e scenarios run as Jobs on kind; cache matched the DB on every hard case (70/70 keys); ScenarioRunner tested on real Postgres | source |
 | 5 | `just e2e`: seed → connector (snapshot) → scenario → worker kill → offset rewind → expect → dump → flush+replay → expect → diff | 1.5h | ✅ green twice in a row after `just clean` (274 s from a deleted cluster, 141 s warm) | platform, test |
-| 6 | Final docs, README, PR description, AI log, interview rehearsal | 1h | `architecture-reviewer` finds no drift; C4 = manifests | main, examiner |
+| 6 | Final docs, README, PR description, AI log, interview rehearsal | 1h | ✅ final `architecture-reviewer` pass: invariants hold; drift fixed; C4 = manifests | main, examiner |
 
 **Cut line if time runs out (in order):** random-load writer modes → `message.key.columns` → Component diagram polish → metrics. **Never cut:** convergence test, replay diff, offset-rewind duplicate injection, ADRs.
 

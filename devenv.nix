@@ -16,7 +16,7 @@
     # kcat intentionally absent: not cached in devenv-nixpkgs and its libserdes dep fails to build;
     # topics are inspected with kafka-console-consumer.sh inside the Kafka pod instead.
     jq
-    valkey        # valkey-cli for `just cache`
+    valkey        # valkey-cli for manual debugging (`just cache` uses the verifier)
     postgresql_17 # psql client for debugging only
   ];
 

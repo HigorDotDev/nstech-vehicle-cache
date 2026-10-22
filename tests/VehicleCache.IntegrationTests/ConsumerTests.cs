@@ -54,7 +54,7 @@ public sealed class ConsumerTests(ValkeyFixture valkey, KafkaFixture kafka) : IC
             GroupId = groupId,
             AutoCommitIntervalMs = 100,
         });
-        using var consumer = new KafkaCdcConsumer(handler, options, lifetime, metrics, NullLogger<KafkaCdcConsumer>.Instance);
+        using var consumer = new KafkaCdcConsumer(handler, options, lifetime, metrics, TimeProvider.System, NullLogger<KafkaCdcConsumer>.Instance);
 
         await consumer.StartAsync(CancellationToken.None);
         await lifetime.StopRequested.WaitAsync(TimeSpan.FromSeconds(60));

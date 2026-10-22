@@ -71,7 +71,15 @@ e2e:
     current="11 summary";            step "$current"
     snapshot_reads=$(just topic fleet.public.vehicles 2>/dev/null | grep -c '"op":"r"' || true)
     echo "snapshot reads (op=r) on vehicles topic: $snapshot_reads"
+    [ "$snapshot_reads" -ge 1 ] || { echo "no op=r events: the snapshot path was not exercised (TB-11)"; false; }
+    # A cache that "passes" without ever rejecting a stale/duplicate fix would mean the scenario had no disorder.
+    for _ in $(seq 1 30); do   # the worker logs its counters every 10 s
+      stale_rejected=$($k logs deploy/worker | grep 'Projection fleet.public.positions' | tail -1 | sed -n 's/.*rejected=\([0-9]*\).*/\1/p')
+      [ -n "$stale_rejected" ] && break; sleep 1
+    done
     echo "worker after replay:"; $k logs deploy/worker | grep 'Projection' | tail -2 | sed 's/^/  /'
+    echo "stale/duplicate positions rejected during replay: ${stale_rejected:-none}"
+    [ "${stale_rejected:-0}" -gt 0 ] || { echo "replay rejected no positions: the scenario exercised no disorder"; false; }
     echo "cache: $(wc -l < out/d2.txt) vehicles · dumps in out/d0.txt out/d1.txt out/d2.txt"
     echo "covered: TB-01..TB-09 (scenario), TB-11 snapshot, TB-12 kill, TB-13 rewind, TB-14 replay, TB-15 oracle"
     echo "✔ e2e PASSED in $((SECONDS - started))s"

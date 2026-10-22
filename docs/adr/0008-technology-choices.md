@@ -1,6 +1,6 @@
 # ADR-0008 — Technology and library choices
 
-- **Status:** Proposed
+- **Status:** Accepted (author decision, 2026-10-21; the optional design-review call was not held)
 - **Date:** 2026-10-21
 - **Deciders:** Higor Buiatti
 - **Related:** 05-conventions

@@ -13,15 +13,15 @@ You build the part that is graded hardest: a projection that stays correct under
 `CLAUDE.md` invariants · `docs/02-spec.md` §4–§7 · ADR-0002/0003/0004/0005 · skills `debezium-event-contract` and `valkey-conditional-write`.
 
 ## Design you implement (do not redesign — propose an ADR change instead)
-- `VehicleCache.Projection` (pure: no Kafka, Valkey or DB packages): `DebeziumEnvelopeParser`, `VehicleChangeMapper`, `PositionChangeMapper`, `CacheCommand` records (`UpsertState`, `ApplyPosition`, `DeleteVehicle`, `Skip`), embedded `Lua/*.lua`.
-- `VehicleCache.Worker`: `KafkaCdcConsumer` (one `BackgroundService` instance per topic), `ValkeyVehicleCacheWriter` (EVALSHA, reload on NOSCRIPT), options binding, logging.
-- Consumer: `EnableAutoOffsetStore=false`, `EnableAutoCommit=true`, `AutoOffsetReset=Earliest`, cooperative-sticky; `StoreOffset` after the writer returns Applied/Rejected; null value ⇒ Skip + StoreOffset.
-- Failure: parse error ⇒ log `{Topic} {Partition} {Offset}` and stop the host with a non-zero exit code; Valkey errors ⇒ bounded retry with backoff, then the same.
-- `recorded_at` → epoch microseconds (parse ISO-8601 invariant culture → `(ticks - UnixEpoch.Ticks) / 10`). Keep the original ISO string for `recordedAt`.
+- `VehicleCache.Projection` (pure: no Kafka, Valkey or DB packages): internal `DebeziumEnvelopeParser`, `VehicleChangeMapper`, `PositionChangeMapper`, `CdcTimestamps`, `CacheCommand` records (`UpsertState`, `ApplyPosition`, `DeleteVehicle` — each a `CacheWrite` carrying key, script and ARGV — and `Skip`), embedded `Lua/*.lua`.
+- `VehicleCache.Worker`: `KafkaCdcConsumer` (one `BackgroundService` instance per topic), `CdcRecordHandler` (map → write, bounded retry), `ValkeyVehicleCacheWriter` (`ScriptEvaluateAsync(script)`; StackExchange.Redis caches the SHA and uses EVALSHA), `ProjectionMetrics`, options binding.
+- Consumer: `EnableAutoOffsetStore=false`, `EnableAutoCommit=true`, `AutoOffsetReset=Earliest`, cooperative-sticky; `StoreOffset` after the handler returns Applied, Rejected or Skipped (null value).
+- Failure: `CdcFormatException` ⇒ log `{Topic} {Partition} {Offset}`, exit code 1, stop the host (both consumers); Valkey errors ⇒ bounded retry (200 ms, 1 s, 3 s, 5 s), then the same.
+- Timestamps: `CdcTimestamps` parses strictly (zone required) and re-formats to the spec §5 canonical form `yyyy-MM-ddTHH:mm:ss.ffffffZ`; `recordedAtUs` = epoch microseconds. Never store the string "as emitted".
 
 ## Always
 - Tests first for the projection: parser tests over captured fixtures; Lua behaviour via Testcontainers (`test-agent` owns the harness, you make it pass).
-- Structured logs with `Outcome = Applied|Rejected|Skipped`.
+- Inject `TimeProvider` for any clock read (log cadence only); per-topic counters are logged as `Projection <topic> applied=… rejected=… skipped=…`.
 - Run the `cdc-correctness-check` skill before declaring done.
 
 ## Never

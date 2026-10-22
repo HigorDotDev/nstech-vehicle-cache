@@ -63,15 +63,15 @@ Prefer delegating to the domain agent over doing cross-domain work in the main s
 5. Infra/e2e.
 6. `architecture-reviewer` pass + `cdc-correctness-check` skill, then commit.
 
-## Repo layout (target)
+## Repo layout
 
 ```
 src/VehicleCache.Projection/   # pure: Debezium parsing → CacheCommand; Lua scripts as embedded resources
 src/VehicleCache.Worker/       # BackgroundServices, Kafka consumers, Valkey writer
-src/VehicleCache.MockWriters/  # one binary: `vehicles`, `positions`, `scenario <file>` commands
+src/VehicleCache.MockWriters/  # one binary, Postgres only: `seed`, `scenario <file>`, `vehicles`, `positions`
 src/VehicleCache.Verifier/     # e2e oracle (reads Postgres + Valkey), cache dump/diff
 tests/VehicleCache.UnitTests/
-tests/VehicleCache.IntegrationTests/   # Testcontainers: Valkey (Lua), optional full pipeline
+tests/VehicleCache.IntegrationTests/   # Testcontainers: Valkey (Lua guards, convergence), Kafka (consumer), Postgres (scenarios, oracle)
 scenarios/                     # deterministic e2e scenarios (JSON)
 infra/                         # postgres init SQL, connector JSON
 k8s/                           # plain manifests deployed by devspace

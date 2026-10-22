@@ -34,23 +34,8 @@ Default: JSON of the PK (`{"id":42}`). With `message.key.columns=public.position
 | `text` | string | |
 
 ## Connector config (spec §4)
-```json
-{
-  "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
-  "plugin.name": "pgoutput",
-  "database.hostname": "postgres", "database.port": "5432",
-  "database.user": "postgres", "database.password": "postgres", "database.dbname": "fleet",
-  "topic.prefix": "fleet",
-  "table.include.list": "public.vehicles,public.positions",
-  "publication.autocreate.mode": "filtered",
-  "slot.name": "vehicle_cache",
-  "snapshot.mode": "initial",
-  "message.key.columns": "public.positions:vehicle_id",
-  "heartbeat.interval.ms": "10000",
-  "key.converter": "org.apache.kafka.connect.json.JsonConverter", "key.converter.schemas.enable": "false",
-  "value.converter": "org.apache.kafka.connect.json.JsonConverter", "value.converter.schemas.enable": "false"
-}
-```
+The canonical, complete config is **`infra/debezium/connector.json`** — read it there; never copy it into docs or skills (copies drift). Settings that matter most: `pgoutput`, `snapshot.mode=initial`, `message.key.columns=public.positions:vehicle_id`, `tombstones.on.delete=true`, `skipped.operations=none`, `heartbeat.interval.ms`, `topic.creation.default.*` (3 partitions, `cleanup.policy=delete`, `retention.ms=-1`), JSON converters with `schemas.enable=false`.
+
 Register with `PUT http://connect:8083/connectors/fleet/config` (idempotent). Check `GET /connectors/fleet/status` → connector and task `RUNNING`.
 
 ## Capturing fixtures

@@ -1,6 +1,6 @@
 # ADR-0009 — Local environment: devenv + kind + devspace + just, plain manifests
 
-- **Status:** Proposed
+- **Status:** Accepted (author decision, 2026-10-21; the optional design-review call was not held)
 - **Date:** 2026-10-21
 - **Deciders:** Higor Buiatti
 - **Related:** 04-environment

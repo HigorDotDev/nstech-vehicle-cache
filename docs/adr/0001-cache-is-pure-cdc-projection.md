@@ -1,6 +1,6 @@
 # ADR-0001 — The cache is a pure projection of CDC
 
-- **Status:** Proposed
+- **Status:** Accepted (author decision, 2026-10-21; the optional design-review call was not held)
 - **Date:** 2026-10-21
 - **Deciders:** Higor Buiatti
 - **Related:** spec §2, §5; TB-14, TB-15, TB-17
@@ -20,5 +20,6 @@ Readers need low-latency "state + latest position" per vehicle. The brief forbid
 ## Consequences
 + Replay identity is testable by byte-diffing canonical dumps.
 + Valkey needs no persistence: it can always be rebuilt.
+− **…but the rebuild is not automatic.** If Valkey restarts empty (OOM, eviction, node loss) the worker resumes from its committed offsets and the cache stays partial until each vehicle changes again. Recovery today is `just replay` (stop worker → `FLUSHALL` → offsets to earliest). Production evolution: a generation marker outside `vehicle:*` (e.g. `cache:generation`) checked at startup to trigger the reset automatically, with blue/green keyspaces so readers never see a half-built cache; or Valkey AOF. Detection is out of scope here.
 − **Replay identity requires unlimited retention on both topics** (configured: `retention.ms=-1`). With limited retention a replay loses every vehicle whose last change or delete is older than the retention window — and the latest position of a parked vehicle can be arbitrarily old. Production alternatives: re-snapshot (new connector offsets / incremental snapshot) or a compacted "latest per vehicle" topic.
 − Rebuild time is bounded by topic size (positions are high-volume).

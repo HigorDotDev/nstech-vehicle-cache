@@ -12,8 +12,8 @@ Work **upstream → downstream**; stop at the first broken hop. Namespace: `vehi
 3. **Connector** — `k exec deploy/connect -- curl -s localhost:8083/connectors/fleet/status` → connector + task `RUNNING`. `FAILED` → read `trace`. Not found → the registration Job failed: `k logs job/register-connector`.
 4. **Topics** — `k exec sts/kafka -- /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list`; peek with `kafka-console-consumer.sh ... --max-messages 3 --from-beginning`. Compare the payload shape with the fixtures.
 5. **Consumer lag** — `just lag` (`kafka-consumer-groups.sh --describe --group vehicle-cache`). Lag stuck > 0 + worker running → worker blocked (poison? Valkey down?).
-6. **Worker** — `just logs worker`; look for `Outcome=` counts, fail-fast lines with `{Topic} {Partition} {Offset}`, restarts.
-7. **Valkey** — `just cache > out/actual.json`; `k exec deploy/valkey -- valkey-cli HGETALL vehicle:<id>`.
+6. **Worker** — `just logs worker`; look for `Projection <topic> applied=… rejected=… skipped=…` lines, fail-fast lines with `{Topic} {Partition} {Offset}`, restarts.
+7. **Valkey** — `just cache > out/actual.txt` (one line per vehicle); `k exec deploy/valkey -- valkey-cli HGETALL vehicle:<id>`.
 8. **Verifier diff** — for each mismatching vehicle, classify:
    | Symptom | Likely cause |
    |---|---|

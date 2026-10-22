@@ -67,6 +67,16 @@ public class PositionChangeMapperTests
         CdcTimestamps.Normalize(input).ShouldBe(expected);
     }
 
+    [Theory]
+    [Trait("TB", "16")]
+    [InlineData("2026-10-21")]
+    [InlineData("2026-10-21T10:00:00")]
+    [InlineData("2026-10-21 10:00:00Z")]
+    public void Date_only_or_zone_less_timestamps_are_poison(string value)
+    {
+        Should.Throw<CdcFormatException>(() => CdcTimestamps.Normalize(value));
+    }
+
     [Fact]
     [Trait("TB", "16")]
     public void Invalid_timestamp_is_poison()

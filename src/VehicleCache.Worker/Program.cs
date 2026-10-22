@@ -21,6 +21,7 @@ builder.Services.AddSingleton<IConnectionMultiplexer>(_ =>
         ?? throw new InvalidOperationException("ConnectionStrings:Valkey is required.")));
 builder.Services.AddSingleton<IVehicleCacheWriter, ValkeyVehicleCacheWriter>();
 builder.Services.AddSingleton<ProjectionMetrics>();
+builder.Services.AddSingleton(TimeProvider.System);
 
 // One consumer per topic, so a burst of positions never delays state changes (spec §7).
 AddConsumer(o => o.VehiclesTopic, VehicleChangeMapper.Map);

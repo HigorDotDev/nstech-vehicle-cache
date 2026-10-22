@@ -1,6 +1,6 @@
 # ADR-0003 — One hash per vehicle, independent field groups, Lua compare-and-set
 
-- **Status:** Proposed
+- **Status:** Accepted (author decision, 2026-10-21; the optional design-review call was not held)
 - **Date:** 2026-10-21
 - **Deciders:** Higor Buiatti
 - **Related:** spec §5, §6; TB-05, TB-07, TB-09, TB-10

@@ -29,6 +29,7 @@ public sealed class KafkaCdcConsumer(
     IOptions<KafkaOptions> options,
     IHostApplicationLifetime lifetime,
     ProjectionMetrics metrics,
+    TimeProvider time,
     ILogger<KafkaCdcConsumer> logger) : BackgroundService
 {
     private static readonly TimeSpan SummaryInterval = TimeSpan.FromSeconds(10);
@@ -64,7 +65,7 @@ public sealed class KafkaCdcConsumer(
         consumer.Subscribe(handler.Topic);
         logger.LogInformation("Consuming {Topic} as group {GroupId}", handler.Topic, settings.GroupId);
 
-        var nextSummary = DateTime.UtcNow + SummaryInterval;
+        var lastSummary = time.GetTimestamp(); // log cadence only — never written to the cache
         try
         {
             while (!stoppingToken.IsCancellationRequested)
@@ -81,10 +82,10 @@ public sealed class KafkaCdcConsumer(
                     continue;
                 }
 
-                if (DateTime.UtcNow >= nextSummary)
+                if (time.GetElapsedTime(lastSummary) >= SummaryInterval)
                 {
                     logger.LogInformation("Projection {Topic} {Summary}", handler.Topic, metrics.Summary(handler.Topic));
-                    nextSummary = DateTime.UtcNow + SummaryInterval;
+                    lastSummary = time.GetTimestamp();
                 }
 
                 if (result is null || result.IsPartitionEOF)

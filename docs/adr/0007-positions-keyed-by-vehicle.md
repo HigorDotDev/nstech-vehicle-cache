@@ -1,6 +1,6 @@
 # ADR-0007 — Positions topic keyed by `vehicle_id` (optimization)
 
-- **Status:** Proposed
+- **Status:** Accepted (author decision, 2026-10-21; the optional design-review call was not held)
 - **Date:** 2026-10-21
 - **Deciders:** Higor Buiatti
 - **Related:** spec §4
@@ -17,4 +17,5 @@ Set `message.key.columns=public.positions:vehicle_id`, so all positions of a veh
 - Single-partition topics — trivial transport ordering but no scalability; and transport order still ≠ `recorded_at` order.
 
 ## Consequences
-− Hot vehicles create skew; irrelevant at challenge scale. Cut candidate if time is short.
+− Hot vehicles create skew; irrelevant at challenge scale.
+− Keying by `vehicle_id` makes log compaction of this topic *incorrect* (it would keep the last-inserted fix, not the latest by `recorded_at`) — see ADR-0004. Retention stays `cleanup.policy=delete`.

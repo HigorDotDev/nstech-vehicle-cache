@@ -44,7 +44,7 @@ return 1
 
 ## Calling from C# (StackExchange.Redis)
 
-- Load each script once: `LuaScript.Prepare(...)` + `.Load(server)` → `LoadedLuaScript`, or keep the SHA and call `db.ScriptEvaluateAsync(sha, keys, values)`; on `NOSCRIPT` reload and retry once (Valkey restart flushes the script cache).
+- The writer calls `db.ScriptEvaluateAsync(script, keys, values)` with the script text: StackExchange.Redis caches its SHA, sends EVALSHA and transparently falls back to EVAL on `NOSCRIPT` (e.g. after a Valkey restart). Scripts and ARGV come from the `CacheWrite` command itself (`Script`, `Key`, `Arguments()`).
 - One `IConnectionMultiplexer` singleton. No `FireAndForget` — the result decides `Applied`/`Rejected` and the offset is stored only after the call returns.
 
 ## Adding a new field group (checklist)
