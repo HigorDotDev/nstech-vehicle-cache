@@ -196,7 +196,7 @@ Exactly-once / Kafka transactions · DLQ · schema registry/Avro · auth/TLS · 
 | 3 | Worker host: consumers, offset store, fail-fast, image | 1h | ✅ pod runs in kind, cache fills from CDC; consumer poison test on real Kafka | worker, platform |
 | 4 | Writers + `scenarios/e2e.json` (covers every TB) | 1h | ✅ seed + e2e scenarios run as Jobs on kind; cache matched the DB on every hard case (70/70 keys); ScenarioRunner tested on real Postgres | source |
 | 5 | `just e2e`: seed → connector (snapshot) → scenario → worker kill → offset rewind → expect → dump → flush+replay → expect → diff | 1.5h | ✅ green twice in a row after `just clean` (274 s from a deleted cluster, 141 s warm) | platform, test |
-| 6 | Final docs, README, PR description, AI log, interview rehearsal | 1h | ✅ final `architecture-reviewer` pass: invariants hold; drift fixed; C4 = manifests | main, examiner |
+| 6 | Final docs, README, PR description, AI log | 1h | ✅ final `architecture-reviewer` pass: invariants hold; drift fixed; C4 = manifests | main |
 
 **Cut line if time runs out (in order):** random-load writer modes → `message.key.columns` → Component diagram polish → metrics. **Never cut:** convergence test, replay diff, offset-rewind duplicate injection, ADRs.
 

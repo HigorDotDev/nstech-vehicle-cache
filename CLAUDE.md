@@ -41,7 +41,6 @@ Precedence when two docs disagree: **ADR > spec > everything else**, and the dis
 | `source-agent` | DDL, Debezium connector config, `src/VehicleCache.MockWriters`, scenarios | Touches Kafka/Valkey from writers |
 | `platform-agent` | `devenv.nix`, `devspace.yaml`, `k8s/`, `justfile`, `src/VehicleCache.Verifier` wiring | Changes projection rules |
 | `test-agent` | Unit, Testcontainers integration, e2e verifier assertions, TB traceability | Weakens an assertion to make it pass |
-| `interview-examiner` | Grill the author with "what breaks if…" questions; find holes in the docs | Writes code or docs |
 
 Prefer delegating to the domain agent over doing cross-domain work in the main session.
 

@@ -6,7 +6,7 @@ The brief says AI use is expected and that the interview probes "where an AI sug
 
 - **Human-authored intent:** problem framing, invariants (CLAUDE.md), ordering-key choice, the convergence argument.
 - **AI-refined:** document drafts, Mermaid diagrams, boilerplate (manifests, consumer loop, DI), test scaffolding.
-- **Guardrails:** domain subagents with narrow scopes (`.claude/agents/`), a read-only `architecture-reviewer`, and an `interview-examiner` that attacks the design. Every AI change passes the `cdc-correctness-check` skill and real-payload fixtures.
+- **Guardrails:** domain subagents with narrow scopes (`.claude/agents/`) and a read-only `architecture-reviewer` that audits every change against the invariants, ADRs and C4. Every AI change passes the `cdc-correctness-check` skill and real-payload fixtures.
 
 ## Rejected / corrected AI suggestions (keep appending)
 
@@ -38,7 +38,7 @@ The brief says AI use is expected and that the interview probes "where an AI sug
 | 21 | (2026-10-21, own draft) Lenient timestamp parsing (`TryParse` + `AssumeUniversal`) | A date-only or zone-less value would be silently accepted and guessed as UTC instead of being poison | `TryParseExact` with a required zone; unit tests for the rejected shapes |
 | 22 | (2026-10-21, own draft) Only `apply_position` was mutation-checked | `apply_state` / `delete_vehicle` could have had untested guards; the e2e only printed rejected counts | All three guards mutation-checked; e2e now requires > 0 rejected positions and ≥ 1 snapshot read |
 
-Entries 19–22 came from the final `architecture-reviewer` pass and an `interview-examiner` rehearsal before opening the PR.
+Entries 19–22 came from the final `architecture-reviewer` pass and a self-review of failure modes before opening the PR.
 
 Entries 13–16 were found by the `architecture-reviewer` subagent auditing the drafts before Phase 2 — an AI reviewing AI output is part of the workflow, but every fix was reasoned through and is covered by a test or an e2e step.
 
