@@ -1,0 +1,40 @@
+# Dev-only visual tool (applied by `just ui` / `just dev`, never by `just up` or `just e2e`).
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka-ui
+spec:
+  selector: { app: kafka-ui }
+  ports:
+    - port: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kafka-ui
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: kafka-ui }
+  template:
+    metadata:
+      labels: { app: kafka-ui }
+    spec:
+      enableServiceLinks: false
+      containers:
+        - name: kafka-ui
+          image: ghcr.io/kafbat/kafka-ui:v1.3.0
+          env:
+            - { name: KAFKA_CLUSTERS_0_NAME, value: "fleet" }
+            - { name: KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS, value: "kafka:9092" }
+            - { name: KAFKA_CLUSTERS_0_KAFKACONNECT_0_NAME, value: "debezium" }
+            - { name: KAFKA_CLUSTERS_0_KAFKACONNECT_0_ADDRESS, value: "http://connect:8083" }
+            - { name: DYNAMIC_CONFIG_ENABLED, value: "false" }
+          ports:
+            - containerPort: 8080
+          readinessProbe:
+            httpGet: { path: /actuator/health, port: 8080 }
+            periodSeconds: 5
+          resources:
+            requests: { memory: 256Mi, cpu: 100m }
+            limits: { memory: 512Mi }

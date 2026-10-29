@@ -1,0 +1,12 @@
+**/bin/
+**/obj/
+.git/
+.devenv/
+.devspace/
+.direnv/
+.claude/
+brief/
+docs/
+out/
+tests/
+k8s/

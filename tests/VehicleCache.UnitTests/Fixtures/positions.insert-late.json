@@ -1,0 +1,32 @@
+{
+  "before": null,
+  "after": {
+    "id": 2,
+    "vehicle_id": 1,
+    "lat": -18.91,
+    "lng": -48.27,
+    "recorded_at": "2026-10-21T10:01:00.000000Z",
+    "inserted_at": "2026-10-21T22:31:17.517123Z"
+  },
+  "source": {
+    "version": "3.2.0.Final",
+    "connector": "postgresql",
+    "name": "fleet",
+    "ts_ms": 1792621877517,
+    "snapshot": "false",
+    "db": "fleet",
+    "sequence": "[\"26389824\",\"26389824\"]",
+    "ts_us": 1792621877517235,
+    "ts_ns": 1792621877517235000,
+    "schema": "public",
+    "table": "positions",
+    "txId": 751,
+    "lsn": 26389824,
+    "xmin": null
+  },
+  "transaction": null,
+  "op": "c",
+  "ts_ms": 1792621877927,
+  "ts_us": 1792621877927585,
+  "ts_ns": 1792621877927585837
+}

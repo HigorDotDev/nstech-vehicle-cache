@@ -1,0 +1,29 @@
+version: v2beta1
+name: vehicle-cache
+
+# Orchestration (waits, connector registration, e2e steps) lives in the justfile.
+images:
+  worker:
+    image: vehicle-cache-worker
+    dockerfile: src/VehicleCache.Worker/Dockerfile
+    context: .
+  writers:
+    image: vehicle-cache-writers
+    dockerfile: src/VehicleCache.MockWriters/Dockerfile
+    context: .
+    tags: ["local"]   # referenced by k8s/jobs/*, which just applies directly (no devspace tag replacement)
+  verifier:
+    image: vehicle-cache-verifier
+    dockerfile: src/VehicleCache.Verifier/Dockerfile
+    context: .
+    tags: ["local"]
+
+deployments:
+  infra:
+    kubectl:
+      manifests:
+        - k8s/infra/
+  app:
+    kubectl:
+      manifests:
+        - k8s/app/

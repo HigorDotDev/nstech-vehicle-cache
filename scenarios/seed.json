@@ -1,0 +1,16 @@
+{
+  "name": "seed",
+  "description": "Rows written BEFORE the connector is registered, so they reach the cache through the initial snapshot (op=r, TB-11). No deletes: a pre-snapshot delete is invisible to CDC (spec §2, ADR-0004).",
+  "steps": [
+    { "kind": "insertVehicle", "id": 1, "plate": "SNP0001", "state": "REGISTERED", "at": "2026-10-21T08:00:00Z" },
+    { "kind": "updateVehicle", "id": 1, "state": "ACTIVE", "at": "2026-10-21T08:10:00Z", "note": "snapshot sees version 2" },
+    { "kind": "insertVehicle", "id": 2, "plate": "SNP0002", "state": "ACTIVE", "at": "2026-10-21T08:00:00Z" },
+    { "kind": "insertVehicle", "id": 3, "plate": "SNP0003", "state": "IDLE", "at": "2026-10-21T08:00:00Z" },
+    { "kind": "insertVehicle", "id": 4, "plate": "SNP0004", "state": "MAINTENANCE", "at": "2026-10-21T08:00:00Z" },
+    { "kind": "insertVehicle", "id": 5, "plate": "SNP0005", "state": "ACTIVE", "at": "2026-10-21T08:00:00Z" },
+    { "kind": "insertPosition", "vehicleId": 1, "lat": -18.918600, "lng": -48.277200, "recordedAt": "2026-10-21T08:20:00Z" },
+    { "kind": "insertPosition", "vehicleId": 2, "lat": -18.910000, "lng": -48.260000, "recordedAt": "2026-10-21T08:20:00Z" },
+    { "kind": "insertPosition", "vehicleId": 3, "lat": -18.930000, "lng": -48.290000, "recordedAt": "2026-10-21T08:20:00Z" },
+    { "kind": "insertPosition", "vehicleId": 6, "lat": -18.940000, "lng": -48.300000, "recordedAt": "2026-10-21T08:20:00Z", "note": "orphan already at snapshot time; vehicle 6 registered during streaming" }
+  ]
+}

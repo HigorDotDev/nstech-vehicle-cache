@@ -1,0 +1,19 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: writers-seed
+spec:
+  backoffLimit: 0   # a failed scenario must fail the run, not be retried on top of partial writes
+  template:
+    metadata:
+      labels: { app: writers }
+    spec:
+      restartPolicy: Never
+      enableServiceLinks: false
+      containers:
+        - name: writers
+          image: vehicle-cache-writers:local   # built by devspace (fixed tag: Jobs are applied by just, not devspace)
+          imagePullPolicy: IfNotPresent
+          args: ["seed"]
+          env:
+            - { name: ConnectionStrings__Postgres, value: "Host=postgres;Username=postgres;Password=postgres;Database=fleet" }

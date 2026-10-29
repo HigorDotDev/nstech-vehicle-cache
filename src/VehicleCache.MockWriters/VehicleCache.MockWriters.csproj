@@ -1,0 +1,14 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Writes ONLY to PostgreSQL. Never references Kafka or Valkey clients (spec §8). -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Npgsql" />
+    <PackageReference Include="System.CommandLine" />
+  </ItemGroup>
+
+</Project>

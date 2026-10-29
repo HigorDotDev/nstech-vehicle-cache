@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk.Worker">
+
+  <!-- Never add Npgsql or any database client here (CLAUDE.md invariant 1, TB-17). -->
+
+  <ItemGroup>
+    <PackageReference Include="Confluent.Kafka" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
+    <PackageReference Include="StackExchange.Redis" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\VehicleCache.Projection\VehicleCache.Projection.csproj" />
+  </ItemGroup>
+
+</Project>
