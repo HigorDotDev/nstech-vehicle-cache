@@ -138,7 +138,9 @@ config:
 
 # Build images and deploy infra + worker, then wait until everything is ready
 deploy:
-    devspace deploy --kube-context {{ctx}} --namespace {{ns}}
+    # --force-build: devspace's own cache would otherwise "skip" an unchanged image and therefore also skip loading
+    # it into a freshly created kind cluster (ImagePullBackOff after `just clean`). Docker's layer cache keeps it fast.
+    devspace deploy --kube-context {{ctx}} --namespace {{ns}} --force-build
     {{k}} rollout status statefulset/postgres --timeout=300s
     {{k}} rollout status statefulset/kafka --timeout=300s
     {{k}} rollout status deployment/valkey --timeout=300s
